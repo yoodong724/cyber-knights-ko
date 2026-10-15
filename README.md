@@ -1,14 +1,14 @@
 # Cyber Knights: Flashpoint 한글패치
 
-**[25889011-rc3 한글패치 다운로드](https://github.com/yoodong724/cyber-knights-ko/releases/tag/25889011-rc3)** · [변경 내역](CHANGELOG.md)
+**[25951469-rc3 한글패치 다운로드](https://github.com/yoodong724/cyber-knights-ko/releases/tag/25951469-rc3)** · [변경 내역](CHANGELOG.md)
 
 ## 대응 버전
 
 | 항목 | 버전 |
 |---|---|
-| 한글패치 | **25889011-rc3** |
-| 게임 | Steam Windows판, App ID 1021210, 빌드 **25889011** (게임 버전 2.7.87) |
-| 해당 게임 빌드 업데이트 날짜 | **2026년 10월 13일** (한국 시간) |
+| 한글패치 | **25951469-rc3** |
+| 게임 | Steam Windows판, App ID 1021210, 빌드 **25951469** (게임 버전 2.7.97) |
+| 해당 게임 빌드 업데이트 날짜 | **2026년 10월 15일** (한국 시간) |
 
 게임 빌드와 업데이트 날짜: [SteamDB](https://steamdb.info/app/1021210/patchnotes/).
 
@@ -22,8 +22,8 @@
 1. 게임과 Steam을 종료합니다.
 2. 기존 패치가 설치돼 있다면 기존 `cyberknights-ko/uninstall.cmd`로 원본을 복구하고, 기존 `cyberknights-ko` 폴더를 다른 이름이나 위치에 보관합니다. 게임 폴더의 `.cyberknights-ko-backup` 폴더는 지우지 않습니다.
 3. 다운로드 페이지의 **Assets**에서 ZIP 하나를 받습니다.
-   - `cyberknights-ko-25889011-rc3.zip`: 본문 + 일부 이미지 (권장)
-   - `cyberknights-ko-25889011-rc2.zip`: 본문만
+   - `cyberknights-ko-25951469-rc3.zip`: 본문 + 일부 이미지 (권장)
+   - `cyberknights-ko-25951469-rc2.zip`: 본문만
 4. Steam 라이브러리에서 게임을 우클릭하고 **관리 → 로컬 파일 탐색**으로 게임 폴더를 엽니다.
 5. ZIP 안의 `cyberknights-ko` 폴더를 `CyberKnights.exe`가 있는 폴더에 넣습니다.
 6. `cyberknights-ko/install.cmd`를 실행하고, 표시된 게임 폴더가 맞으면 `y`를 입력합니다.

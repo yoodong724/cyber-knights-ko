@@ -80,8 +80,8 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
     ``rows`` is the distribution builder's map of target path to one staged file
     row.  No source bytes are written or regenerated here.
     """
-    if build == "25889011":
-        return _validate_reused_partial_images(stage, rows)
+    if build in ("25889011", "25951469"):
+        return _validate_reused_partial_images(stage, rows, build)
     _need(build == _BUILD, "partial lane is pinned to Steam build 25697586")
     stage = Path(stage).resolve()
     root = stage.parent
@@ -321,18 +321,19 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
     }
 
 
-def _validate_reused_partial_images(stage: Path, rows: dict) -> dict:
+def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict:
     """Reuse byte-identical image evidence without reassigning old game QA.
 
     Prior records retain their real source build. The current package reports
     every image as not tested in game, even if that image was seen previously.
     """
-    from .ckf_distribution import UPDATE_GUARDS
+    from .ckf_distribution import update_profile
+    guards = update_profile(build)[1]
     stage = no_links(Path(stage).resolve())
     receipt_path = _file(stage, "migration-validation.json")
     receipt = read_json(receipt_path)
     _need(isinstance(receipt, dict) and receipt.get("format") == "ckf-image-byte-reuse-v1" and
-          receipt.get("source_build") == "25889011" and receipt.get("evidence_source_build") == _BUILD and
+          receipt.get("source_build") == build and receipt.get("evidence_source_build") == _BUILD and
           receipt.get("current_ingame") == "NOT_RUN", "invalid image reuse receipt")
     prior_value = receipt.get("prior_stage")
     _need(isinstance(prior_value, str) and Path(prior_value).is_absolute(), "invalid prior image stage")
@@ -354,11 +355,11 @@ def _validate_reused_partial_images(stage: Path, rows: dict) -> dict:
     files = _index(manifest.get("files"), "path", "reused image bundles", count=2)
     _need(set(files) == set(_TARGETS) and set(rows) >= set(files), "wrong reused image targets")
     guard_rows = _index(manifest.get("guards"), "path", "reused image guards", count=2)
-    _need({k: v.get("sha256") for k, v in guard_rows.items()} == UPDATE_GUARDS,
+    _need({k: v.get("sha256") for k, v in guard_rows.items()} == guards,
           "image reuse guard/build mismatch")
     for path, row in files.items():
         prior = prior_rows[path][0]
-        _need(row.get("before") == get_source_profile("25889011")[path][1] == prior["before"] and
+        _need(row.get("before") == get_source_profile(build)[path][1] == prior["before"] and
               row.get("after") == prior["after"] and
               rows[path][0].get("before") == row["before"] and
               rows[path][0].get("after") == row["after"] and
@@ -368,7 +369,7 @@ def _validate_reused_partial_images(stage: Path, rows: dict) -> dict:
     _need(file_hash(machine_path) == receipt.get("current_machine_report_sha256"),
           "stale current image machine check")
     machine = read_json(machine_path)
-    _need(machine.get("status") == "PASS" and machine.get("source_build") == "25889011" and
+    _need(machine.get("status") == "PASS" and machine.get("source_build") == build and
           machine.get("evidence_source_build") == _BUILD and machine.get("complete") is False and
           machine.get("current_stage_manifest_sha256") == file_hash(manifest_path) and
           machine.get("counts", {}).get("unchanged_objects") == 5918 and
@@ -378,14 +379,14 @@ def _validate_reused_partial_images(stage: Path, rows: dict) -> dict:
     _need(set(checked) == set(previous["edited_ids"]), "current image check scope mismatch")
     for key, item in checked.items():
         bundle = _TARGETS[1] if key == _BANNER_ID else _TARGETS[0]
-        _need(item.get("source_build") == "25889011" and item.get("bundle_path") == bundle and
+        _need(item.get("source_build") == build and item.get("bundle_path") == bundle and
               item.get("bundle_sha256") == files[bundle]["after"] and
               item.get("outside_edit_pixels_or_nonselected_dxt_blocks_unchanged") is True and
               item.get("protected_pixels_unchanged") is True,
               "current selected image preservation failed")
         if key == _BANNER_ID:
             _need(item.get("alpha_unchanged") is True, "current banner alpha preservation failed")
-    previous.update(source_build="25889011", ingame_observed_ids=[],
+    previous.update(source_build=build, ingame_observed_ids=[],
                     ingame_not_run_ids=list(previous["edited_ids"]),
                     evidence_source_build=_BUILD)
     previous["evidence_sha256"] = {**previous["evidence_sha256"],
