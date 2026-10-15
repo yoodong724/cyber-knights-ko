@@ -24,6 +24,21 @@ UPDATE_GUARDS = {
     'CyberKnights_Data/StreamingAssets/Locales/en-US.json': '3888d0e89a488073871af9b40d74eb79e1d07330e552acb5a11bc5208bb74a3a',
     'CyberKnights_Data/StreamingAssets/aa/catalog.bin': 'e38e0251c570115feea465d356c3db1011a09e80e7d162480f1a4ab29a79b59b',
 }
+UPDATE_25951469_TARGETS = (CHINESE, FONT,
+    'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/12a93a93a631419a4acec10bebefc84a.bundle',
+    TARGETS[3])
+UPDATE_25951469_GUARDS = {
+    'CyberKnights_Data/StreamingAssets/Locales/en-US.json': '02752bed120a3cd3bb1757b02c11bee6a8754b2a812f4ef890c0fa389bd3befb',
+    'CyberKnights_Data/StreamingAssets/aa/catalog.bin': '382d80b33027e0bc863302c92c79fa84c39c717e3bb17daf991fa2409a545efe',
+}
+# Builds whose caption bundle moved and whose image bundles reuse 25697586 bytes.
+UPDATE_BUILDS = ('25889011', '25951469')
+
+
+def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
+    """Pinned (four targets, guards) for caption-moved builds; looked up at call time."""
+    return {'25889011': (UPDATE_TARGETS, UPDATE_GUARDS),
+            '25951469': (UPDATE_25951469_TARGETS, UPDATE_25951469_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
@@ -312,12 +327,13 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
     require_new_output(work)
     require_new_output(out/name)
     rows = {}; guards = {}; image_stage = None
-    base_targets = UPDATE_TARGETS if build == '25889011' else TARGETS
+    profile = update_profile(build)
+    base_targets = profile[0] if profile else TARGETS
     if build == '25594089':
         accepted_stage_targets = set(TARGETS) | set(get_source_profile('25594089'))
     elif build == '25697586':
         accepted_stage_targets = set(TARGETS) | set(get_source_profile('25697586'))
-    elif build == '25889011':
+    elif profile:
         accepted_stage_targets = set(base_targets) | set(get_source_profile(build))
     else:
         # Historical four-file packages keep accepting their caller-supplied build.
@@ -334,7 +350,7 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
         if any(path in all_image_targets for path in stage_paths):
             if image_stage is not None or m['format'] != 'ckf-local-asset-overlay-v1' or len(stage_paths) != 2:
                 raise GlocError('Image stage must contain exactly two image bundles')
-            if build not in ('25594089', '25697586', '25889011'):
+            if build not in ('25594089', '25697586', *UPDATE_BUILDS):
                 raise GlocError('Unsupported image source build')
             profile_targets = set(get_source_profile(build))
             if set(stage_paths) != profile_targets:
@@ -354,10 +370,10 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
         current_v2_targets if set(rows) == set(current_v2_targets) else None)
     if paths is None or set(guards) != set(GUARDS):
         raise GlocError('Patch requires exactly four or six fixed files and two guards')
-    if build == '25889011' and guards != UPDATE_GUARDS:
-        raise GlocError('25889011 stage requires its pinned build and guards')
+    if profile and guards != profile[1]:
+        raise GlocError(f'{build} stage requires its pinned build and guards')
     image_summary = None
-    if allow_partial_images and (build not in ('25697586', '25889011') or paths != current_v2_targets):
+    if allow_partial_images and (build not in ('25697586', *UPDATE_BUILDS) or paths != current_v2_targets):
         raise GlocError('Partial images require the current six-file build profile')
     if paths == V2_TARGETS:
         if image_stage is None:
@@ -368,15 +384,15 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
     elif paths == current_v2_targets:
         if image_stage is None:
             raise GlocError('Missing image stage')
-        expected_guards = UPDATE_GUARDS if build == '25889011' else CURRENT_GUARDS
-        if build not in ('25697586', '25889011') or guards != expected_guards:
+        expected_guards = profile[1] if profile else CURRENT_GUARDS
+        if build not in ('25697586', *UPDATE_BUILDS) or guards != expected_guards:
             raise GlocError('Current image stage requires its pinned build and guards')
         if allow_partial_images:
             from .ckf_partial_images import validate_partial_images
             image_summary = validate_partial_images(image_stage, rows, build=build)
         else:
-            if build == '25889011':
-                raise GlocError('25889011 images require explicit partial-image authorization')
+            if profile:
+                raise GlocError(f'{build} images require explicit partial-image authorization')
             _image_validation(image_stage, rows, build=build)
     for rel, digest in guards.items():
         if file_hash(no_links(original/rel)) != digest: raise GlocError('Guard mismatch')
