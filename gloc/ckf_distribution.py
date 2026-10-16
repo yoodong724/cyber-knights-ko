@@ -31,14 +31,20 @@ UPDATE_25951469_GUARDS = {
     'CyberKnights_Data/StreamingAssets/Locales/en-US.json': '02752bed120a3cd3bb1757b02c11bee6a8754b2a812f4ef890c0fa389bd3befb',
     'CyberKnights_Data/StreamingAssets/aa/catalog.bin': '382d80b33027e0bc863302c92c79fa84c39c717e3bb17daf991fa2409a545efe',
 }
+# 25964281 keeps the 25951469 target bytes; only English/catalog guards changed.
+UPDATE_25964281_GUARDS = {
+    'CyberKnights_Data/StreamingAssets/Locales/en-US.json': '96b480317ed77cbd43ca6dcb87a8099a1eba29840512c02f69f33f89f8a30912',
+    'CyberKnights_Data/StreamingAssets/aa/catalog.bin': '4730c1ddb4fe809e5835dda6b5251a114736ae05180fd98aef883fea1cab62bd',
+}
 # Builds whose caption bundle moved and whose image bundles reuse 25697586 bytes.
-UPDATE_BUILDS = ('25889011', '25951469')
+UPDATE_BUILDS = ('25889011', '25951469', '25964281')
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
     """Pinned (four targets, guards) for caption-moved builds; looked up at call time."""
     return {'25889011': (UPDATE_TARGETS, UPDATE_GUARDS),
-            '25951469': (UPDATE_25951469_TARGETS, UPDATE_25951469_GUARDS)}.get(build)
+            '25951469': (UPDATE_25951469_TARGETS, UPDATE_25951469_GUARDS),
+            '25964281': (UPDATE_25951469_TARGETS, UPDATE_25964281_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')

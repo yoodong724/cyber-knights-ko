@@ -87,21 +87,21 @@ public static class CkfPatch {
         if(format=="ckf-distribution-v1") {
             paths=(string[])BasePaths.Clone();
             if(build=="25889011") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/f3165aa803db5d6316c3952a1d313627.bundle";
-            if(build=="25951469") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/12a93a93a631419a4acec10bebefc84a.bundle";
+            if(build=="25951469" || build=="25964281") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/12a93a93a631419a4acec10bebefc84a.bundle";
         }
         else {
-            Require(build=="25594089" || build=="25697586" || build=="25889011" || build=="25951469","Unsupported image distribution build");
+            Require(build=="25594089" || build=="25697586" || build=="25889011" || build=="25951469" || build=="25964281","Unsupported image distribution build");
             string[] images=build=="25594089" ? LegacyImagePaths : CurrentImagePaths;
             paths=new string[6]; Array.Copy(BasePaths,paths,4); Array.Copy(images,0,paths,4,2);
             if(build=="25889011") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/f3165aa803db5d6316c3952a1d313627.bundle";
-            if(build=="25951469") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/12a93a93a631419a4acec10bebefc84a.bundle";
+            if(build=="25951469" || build=="25964281") paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/12a93a93a631419a4acec10bebefc84a.bundle";
         }
         var entries=root["files"] as object[]; Require(entries!=null && entries.Length==paths.Length,"Wrong file count");
         var result=new Manifest { Id=id,Files=new Row[paths.Length],Guards=new Dictionary<string,string>() };
         object imageStatus;
         if(root.TryGetValue("image_status",out imageStatus)) {
             var status=imageStatus as Dictionary<string,object>;
-            Require(format=="ckf-distribution-v2" && (build=="25697586" || build=="25889011" || build=="25951469") && status!=null,"Invalid partial image profile");
+            Require(format=="ckf-distribution-v2" && (build=="25697586" || build=="25889011" || build=="25951469" || build=="25964281") && status!=null,"Invalid partial image profile");
             Require(Text(status,"source_build")==build,"Partial image source build mismatch");
             Require(Text(status,"format")=="ckf-partial-image-summary-v1","Unsupported image status");
             foreach(string key in new [] {"complete","human_language_approval","full_game_qa"}) {
@@ -109,7 +109,7 @@ public static class CkfPatch {
             }
             var edited=status["edited_ids"] as object[];
             Require(edited!=null && edited.Length>0 && edited.Length<=32,"Invalid partial image count");
-            if(build=="25889011" || build=="25951469") {
+            if(build=="25889011" || build=="25951469" || build=="25964281") {
                 Require(Text(status,"evidence_source_build")=="25697586","Invalid reused image evidence build");
                 var observed=status["ingame_observed_ids"] as object[];
                 var notRun=status["ingame_not_run_ids"] as object[];
@@ -139,8 +139,12 @@ public static class CkfPatch {
             Require(result.Guards[Guards[0]]=="02752bed120a3cd3bb1757b02c11bee6a8754b2a812f4ef890c0fa389bd3befb" &&
                     result.Guards[Guards[1]]=="382d80b33027e0bc863302c92c79fa84c39c717e3bb17daf991fa2409a545efe","Guard/build profile mismatch");
         }
-        if(format=="ckf-distribution-v2" && (build=="25889011" || build=="25951469")) Require(result.PartialImageNotice!=null,build+" images require partial status");
-        if(format=="ckf-distribution-v2" && build!="25889011" && build!="25951469") {
+        if(build=="25964281") {
+            Require(result.Guards[Guards[0]]=="96b480317ed77cbd43ca6dcb87a8099a1eba29840512c02f69f33f89f8a30912" &&
+                    result.Guards[Guards[1]]=="4730c1ddb4fe809e5835dda6b5251a114736ae05180fd98aef883fea1cab62bd","Guard/build profile mismatch");
+        }
+        if(format=="ckf-distribution-v2" && (build=="25889011" || build=="25951469" || build=="25964281")) Require(result.PartialImageNotice!=null,build+" images require partial status");
+        if(format=="ckf-distribution-v2" && build!="25889011" && build!="25951469" && build!="25964281") {
             string english=build=="25594089" ? "6a0de0621ab04c4865cabcab5b3058ae854261f7952a0b3f0a44c1ec9c704c6a" : "dc181972ed1c734fdd703e7077af492972d9bdd9af212d8dbc8a2800c448e2d8";
             string catalog=build=="25594089" ? "08778902ee99fc8714d0c4752349075d002720a00162c9dad186c12d9f327133" : "48bb9cca0500656eede32b28a366e82f10a5cee54e3a02686a1e15234910954a";
             Require(result.Guards.Count==2 && result.Guards[Guards[0]]==english && result.Guards[Guards[1]]==catalog,"Guard/build profile mismatch");
