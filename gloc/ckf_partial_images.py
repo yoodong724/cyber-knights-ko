@@ -80,7 +80,7 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
     ``rows`` is the distribution builder's map of target path to one staged file
     row.  No source bytes are written or regenerated here.
     """
-    if build in ("25889011", "25951469"):
+    if build in ("25889011", "25951469", "25964281"):
         return _validate_reused_partial_images(stage, rows, build)
     _need(build == _BUILD, "partial lane is pinned to Steam build 25697586")
     stage = Path(stage).resolve()

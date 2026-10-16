@@ -43,6 +43,8 @@ _TARGETS_BY_BUILD = {
 _TARGETS_BY_BUILD["25889011"] = dict(_TARGETS_BY_BUILD["25697586"])
 # 25951469 likewise keeps both image source bundles byte-identical (hash-checked).
 _TARGETS_BY_BUILD["25951469"] = dict(_TARGETS_BY_BUILD["25697586"])
+# 25964281 again keeps both image source bundles byte-identical (hash-checked).
+_TARGETS_BY_BUILD["25964281"] = dict(_TARGETS_BY_BUILD["25697586"])
 _CURRENT_IDS = frozenset({
     "ckf-image:10fa5342868340bff4037730a670069c2e6e4eef7bf090150f2780354c248e71",
     "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
@@ -141,7 +143,7 @@ def validate_record(record: Mapping, *, source_build: str = "25594089") -> None:
     if (record["asset"] not in targets or
             (record["serialized_file"], record.get("asset_sha256")) != targets[record["asset"]]):
         raise ImagePatchError("image record is outside pinned source bundles")
-    if source_build in ("25697586", "25889011", "25951469") and record["id"] not in _CURRENT_IDS:
+    if source_build in ("25697586", "25889011", "25951469", "25964281") and record["id"] not in _CURRENT_IDS:
         raise ImagePatchError("image ID is outside current build scope")
     width = _integer(record.get("width"), "width", minimum=1)
     height = _integer(record.get("height"), "height", minimum=1)
@@ -270,7 +272,7 @@ def validate_scope(records: Sequence[Mapping], edits: Sequence[Mapping], expecte
     actual = {record["id"] for record in records}
     if not isinstance(expected_ids, set) or not expected_ids or not all(isinstance(i, str) and _ID.fullmatch(i) for i in expected_ids):
         raise ImagePatchError("invalid expected image scope")
-    if source_build in ("25697586", "25889011", "25951469") and expected_ids != _CURRENT_IDS:
+    if source_build in ("25697586", "25889011", "25951469", "25964281") and expected_ids != _CURRENT_IDS:
         raise ImagePatchError("expected image scope does not match current build profile")
     if pilot:
         if not actual or not actual <= expected_ids:
