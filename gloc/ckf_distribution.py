@@ -9,7 +9,8 @@ import struct
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .ckf_install import CHINESE, FONT, GUARDS, no_links, disjoint
+from .ckf_install import (CHINESE, FONT, FONT_26097464, FONT_26097464_PROFILE,
+                          GUARDS, GUARDS_26097464, GUARDS_26138768, no_links, disjoint, valid_hash)
 from .image_patch import get_source_profile
 from .util import GlocError, file_hash, read_json, read_jsonl, require_new_output, write_json
 
@@ -36,15 +37,43 @@ UPDATE_25964281_GUARDS = {
     'CyberKnights_Data/StreamingAssets/Locales/en-US.json': '96b480317ed77cbd43ca6dcb87a8099a1eba29840512c02f69f33f89f8a30912',
     'CyberKnights_Data/StreamingAssets/aa/catalog.bin': '4730c1ddb4fe809e5835dda6b5251a114736ae05180fd98aef883fea1cab62bd',
 }
-# Builds whose caption bundle moved and whose image bundles reuse 25697586 bytes.
-UPDATE_BUILDS = ('25889011', '25951469', '25964281')
+UPDATE_26097464_TARGETS = (CHINESE, FONT_26097464,
+    'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/81abd4ea29932d9b79d378d018b7d98a.bundle',
+    'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b19430f3a52557e1df858dc46e1b0233.bundle')
+UPDATE_26097464_GUARDS = dict(GUARDS_26097464)
+# All original target hashes come from the frozen 26097464 original-files.json.
+UPDATE_26097464_ORIGINALS = dict(zip(UPDATE_26097464_TARGETS, (
+    '46b39cf4d342bb6901ee7d07e03e6425dcebc92c98e8bd8c76d3473f98218c45',
+    '876d7d2963fa00e6752e961d845fe59fb41f3a9c204226c35a74a122e85bc770',
+    '9b4db040dcf96a3d123ca23f0716423c7f25aed2596f5952cf8102d53b6464f7',
+    '7398233a5ef51249b296057a634b3bc3d5726f102d7435c2199efb566998bbe6')))
+# 26138768 keeps the font/caption/fallback bytes of 26097464; zh-CN and guards changed.
+UPDATE_26138768_GUARDS = dict(GUARDS_26138768)
+UPDATE_26138768_ORIGINALS = dict(zip(UPDATE_26097464_TARGETS, (
+    '25d244ba3aa65f5ba4401dbe86095c4dd5b5f8f2469e3e03cc5f0e8d97699921',
+    *tuple(UPDATE_26097464_ORIGINALS.values())[1:])))
+# Builds whose tutorial image streams are relocated from the released 25964281-rc1
+# evidence instead of reusing old bundle bytes; only that evidence lane permits this.
+RELOCATION_BUILDS = ('26097464', '26138768')
+# Explicit update profiles.
+UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
+
+
+def relocation_profile(build: str) -> dict | None:
+    """Pinned relocation build profile; module constants are looked up at call time."""
+    return {'26097464': {'game_version': '2.7.99', 'targets': UPDATE_26097464_TARGETS,
+                         'guards': UPDATE_26097464_GUARDS, 'originals': UPDATE_26097464_ORIGINALS},
+            '26138768': {'game_version': '2.7.101', 'targets': UPDATE_26097464_TARGETS,
+                         'guards': UPDATE_26138768_GUARDS, 'originals': UPDATE_26138768_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
     """Pinned (four targets, guards) for caption-moved builds; looked up at call time."""
     return {'25889011': (UPDATE_TARGETS, UPDATE_GUARDS),
             '25951469': (UPDATE_25951469_TARGETS, UPDATE_25951469_GUARDS),
-            '25964281': (UPDATE_25951469_TARGETS, UPDATE_25964281_GUARDS)}.get(build)
+            '25964281': (UPDATE_25951469_TARGETS, UPDATE_25964281_GUARDS),
+            '26097464': (UPDATE_26097464_TARGETS, UPDATE_26097464_GUARDS),
+            '26138768': (UPDATE_26097464_TARGETS, UPDATE_26138768_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
@@ -353,6 +382,8 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
         if len(stage_paths) != len(m.get('files', [])):
             raise GlocError('Invalid source stage entries')
         all_image_targets = set(IMAGE_TARGETS) | set(CURRENT_IMAGE_TARGETS)
+        for relocated in RELOCATION_BUILDS:
+            all_image_targets |= set(get_source_profile(relocated))
         if any(path in all_image_targets for path in stage_paths):
             if image_stage is not None or m['format'] != 'ckf-local-asset-overlay-v1' or len(stage_paths) != 2:
                 raise GlocError('Image stage must contain exactly two image bundles')
@@ -370,7 +401,7 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
             if guard['path'] not in GUARDS or guards.get(guard['path'],guard['sha256']) != guard['sha256']:
                 raise GlocError('Inconsistent guards')
             guards[guard['path']] = guard['sha256']
-    current_v2_targets = base_targets + CURRENT_IMAGE_TARGETS
+    current_v2_targets = base_targets + (tuple(get_source_profile(build)) if profile else CURRENT_IMAGE_TARGETS)
     paths = base_targets if set(rows) == set(base_targets) else (
         V2_TARGETS if set(rows) == set(V2_TARGETS) else
         current_v2_targets if set(rows) == set(current_v2_targets) else None)
@@ -378,6 +409,19 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
         raise GlocError('Patch requires exactly four or six fixed files and two guards')
     if profile and guards != profile[1]:
         raise GlocError(f'{build} stage requires its pinned build and guards')
+    relocation = relocation_profile(build)
+    if relocation:
+        if paths != current_v2_targets or not allow_partial_images:
+            raise GlocError(f'{build} requires the authorized six-file partial-image package')
+        if game_version != relocation['game_version']:
+            raise GlocError(f"{build} requires game version {relocation['game_version']}")
+        originals = {**relocation['originals'],
+                     **{p: h for p, (_, h) in get_source_profile(build).items()}}
+        if any(rows[p][0].get('before') != h for p, h in originals.items()):
+            raise GlocError(f'{build} original target profile mismatch')
+        if (not valid_hash(FONT_26097464_PROFILE['patched']) or
+                rows[FONT_26097464][0].get('after') != FONT_26097464_PROFILE['patched']):
+            raise GlocError(f'{build} Korean font result is not verified/pinned')
     image_summary = None
     if allow_partial_images and (build not in ('25697586', *UPDATE_BUILDS) or paths != current_v2_targets):
         raise GlocError('Partial images require the current six-file build profile')
@@ -437,7 +481,8 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
         content = no_links(templates/relative).read_text(encoding='utf-8')
         if relative == 'README.txt' and image_summary is not None:
             s = image_summary
-            content = ('부분 이미지 포함 한국어 패치 — Steam '+build+' / '+game_version+' / rc'+str(revision)+'\n'
+            content = ('부분 이미지 포함 한국어 패치 — Steam '+build+' / '+game_version+
+                       (f' / rc{revision}' if revision else '')+'\n'
                        '이미지 전체 번역은 미완료입니다. 영문 문구가 남아 있습니다.\n'
                        f"이미지 {len(s['edited_ids'])}점·{s['rendered_regions']}개 영역 반영, "
                        f"그중 {len(s['partial_ids'])}점 부분 수정. "
