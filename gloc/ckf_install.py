@@ -1,6 +1,6 @@
 """Local, non-distributable CKF staging and recoverable two-file test-copy installation.
 
-No Unity dependency: accepts only the exact font bundle validated by the PoC.
+No Unity dependency: accepts only pinned, independently verified font pairs.
 This is not a public release packager or a multi-file atomic transaction.
 """
 from __future__ import annotations
@@ -20,9 +20,27 @@ FONT = "CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/735c930b6d62a56
 CATALOG = "CyberKnights_Data/StreamingAssets/aa/catalog.bin"
 TARGETS = (CHINESE, FONT)
 GUARDS = (ENGLISH, CATALOG)
-# Observed build 25314928, Unity 6000.3.12f1. Other font builds fail closed.
+# Legacy pair: observed build 25314928, Unity 6000.3.12f1.
 FONT_PROFILE = {"original": "52fb3173cfb108940a392352fc683470952fda3730addfc89eadbdd4293cc916",
                 "patched": "bc0dd8eef828fb3946503a0e8bafe18dd776d9714faf64a1e68aa8dd34366e11"}
+FONT_26097464 = "CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/f1335b489121d5d0f88f37fff58849d9.bundle"
+GUARDS_26097464 = {
+    ENGLISH: "f9f37a09c8f7ac1057612c5c1682d6df9cf958e8bd5c757e637764bd7b9e5077",
+    CATALOG: "e45b4dd2c6cb0e760f994a58c3fa98fe49eb0474b136eb0ba8a7ab8a7b0b4d55",
+}
+# 26138768 keeps the 26097464 font bundle bytes; only English/catalog guards changed.
+GUARDS_26138768 = {
+    ENGLISH: "00c771cb9534cdfca3ce51acd98e6b1cf8a4ee75dcef6ee34c49bd27ed52de3a",
+    CATALOG: "56778d83a2fd108ebab4311a6639b9705750fb967705ff9a6852ef1c977f9d13",
+}
+# Guard sets whose font bundle is FONT_26097464 with FONT_26097464_PROFILE.
+CURRENT_FONT_GUARDS = (GUARDS_26097464, GUARDS_26138768)
+# Independently rebuilt current bundle: only Font.m_FontData was replaced;
+# all other 23 objects are unchanged. No caller-supplied result hash is accepted.
+FONT_26097464_PROFILE = {
+    "original": "876d7d2963fa00e6752e961d845fe59fb41f3a9c204226c35a74a122e85bc770",
+    "patched": "d23a95d170c98458973281a24c15b06b5e1065bdab6eda0d533880f2ee0730cc",
+}
 sha = lambda data: hashlib.sha256(data).hexdigest()
 
 
@@ -44,10 +62,10 @@ def disjoint(a: Path, b: Path) -> None:
         raise GlocError("Original, copy, stage and backup directories must be separate")
 
 
-def copy_paths(original: Path, game_copy: Path) -> tuple[Path, Path]:
+def copy_paths(original: Path, game_copy: Path, *, targets: tuple[str, ...] = TARGETS) -> tuple[Path, Path]:
     original, game_copy = no_links(original), no_links(game_copy)
     disjoint(original, game_copy)
-    for relative in (*TARGETS, *GUARDS):
+    for relative in (*targets, *GUARDS):
         src, dst = no_links(original / relative), no_links(game_copy / relative)
         if not src.is_file() or not dst.is_file():
             raise GlocError(f"Missing game/copy file: {relative}")
@@ -61,17 +79,26 @@ def stage(snapshot_dir: Path, translations: Path, game: Path, font: Path, out: P
     disjoint(game, out)
     disjoint(no_links(snapshot_dir), out)
     require_new_output(out)
-    base = {r: no_links(game / r).read_bytes() for r in (*TARGETS, *GUARDS)}
-    font_data = font.read_bytes()
-    if sha(base[FONT]) != FONT_PROFILE["original"] or sha(font_data) != FONT_PROFILE["patched"]:
-        raise GlocError("Unverified font bundle/build: this stage supports only the validated PoC pair")
+    base = {r: no_links(game / r).read_bytes() for r in GUARDS}
+    current = {r: sha(base[r]) for r in GUARDS} in CURRENT_FONT_GUARDS
+    font_path = FONT_26097464 if current else FONT
+    targets = (CHINESE, font_path)
+    profile = FONT_26097464_PROFILE if current else FONT_PROFILE
+    if not valid_hash(profile["patched"]):
+        raise GlocError("26097464 Korean font result is not yet verified/pinned")
+    if not no_links(game / font_path).is_file():
+        raise GlocError("Unverified font bundle/build: missing pinned font path")
+    base.update({r: no_links(game / r).read_bytes() for r in targets})
+    font_data = no_links(font).read_bytes()
+    if sha(base[font_path]) != profile["original"] or sha(font_data) != profile["patched"]:
+        raise GlocError("Unverified font bundle/build: expected the pinned original/result pair")
     locale, report = render(snapshot_dir, base[ENGLISH], base[CHINESE], read_jsonl(translations), **options)
     payloads = (locale, font_data)
     manifest = {"format": "ckf-local-stage-v1", "local_only": True, "release_approved": False,
                 "snapshot_hash": read_json(snapshot_dir / "manifest.json")["source_snapshot_hash"],
                 "translations_sha256": file_hash(translations),
                 "files": [{"path": r, "before": sha(base[r]), "after": sha(data), "payload": f"{i}.bin"}
-                          for i,(r,data) in enumerate(zip(TARGETS, payloads))],
+                          for i,(r,data) in enumerate(zip(targets, payloads))],
                 "guards": [{"path": r, "sha256": sha(base[r])} for r in GUARDS]}
     if options.get("duplicate_overrides") is not None:
         manifest["duplicate_overrides_hash"] = digest(options["duplicate_overrides"])
@@ -88,7 +115,11 @@ def validate_manifest(manifest: dict) -> None:
     if (manifest.get("format") != "ckf-local-stage-v1" or manifest.get("local_only") is not True or
             manifest.get("release_approved") is not False):
         raise GlocError("Not a local CKF stage")
-    if ([r.get("path") for r in manifest.get("files", [])] != list(TARGETS) or
+    guard_values = {r.get("path"): r.get("sha256") for r in manifest.get("guards", [])}
+    current = guard_values in CURRENT_FONT_GUARDS
+    targets = (CHINESE, FONT_26097464) if current else TARGETS
+    profile = FONT_26097464_PROFILE if current else FONT_PROFILE
+    if ([r.get("path") for r in manifest.get("files", [])] != list(targets) or
             [r.get("payload") for r in manifest["files"]] != ["0.bin", "1.bin"] or
             [r.get("path") for r in manifest.get("guards", [])] != list(GUARDS)):
         raise GlocError("Unexpected stage paths/order")
@@ -101,7 +132,7 @@ def validate_manifest(manifest: dict) -> None:
     if "duplicate_overrides_hash" in manifest and not valid_hash(manifest["duplicate_overrides_hash"]):
         raise GlocError("Invalid duplicate overrides hash")
     font = manifest["files"][1]
-    if (font["before"], font["after"]) != (FONT_PROFILE["original"], FONT_PROFILE["patched"]):
+    if not valid_hash(profile["patched"]) or (font["before"], font["after"]) != (profile["original"], profile["patched"]):
         raise GlocError("Unverified font profile")
 
 
@@ -110,14 +141,14 @@ def valid_hash(value) -> bool:
 
 
 def apply(stage_dir: Path, original: Path, game_copy: Path, backup: Path) -> dict:
-    original, game_copy = copy_paths(original, game_copy)
     stage_dir, backup = no_links(stage_dir), no_links(backup)
+    manifest = read_json(no_links(stage_dir / "manifest.json"))
+    validate_manifest(manifest)
+    original, game_copy = copy_paths(original, game_copy, targets=tuple(r["path"] for r in manifest["files"]))
     for a,b in ((stage_dir, original), (stage_dir, game_copy), (backup, original),
                 (backup, game_copy), (backup, stage_dir)):
         disjoint(a,b)
     require_new_output(backup)
-    manifest = read_json(no_links(stage_dir / "manifest.json"))
-    validate_manifest(manifest)
     payloads = [no_links(stage_dir / f"{i}.bin").read_bytes() for i in range(2)]
     if any(sha(data) != row["after"] for row,data in zip(manifest["files"],payloads)):
         raise GlocError("Corrupted staged payload")

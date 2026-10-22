@@ -45,6 +45,22 @@ _TARGETS_BY_BUILD["25889011"] = dict(_TARGETS_BY_BUILD["25697586"])
 _TARGETS_BY_BUILD["25951469"] = dict(_TARGETS_BY_BUILD["25697586"])
 # 25964281 again keeps both image source bundles byte-identical (hash-checked).
 _TARGETS_BY_BUILD["25964281"] = dict(_TARGETS_BY_BUILD["25697586"])
+# The tutorial bundle changed. Historical records and their IDs remain 25697586
+# evidence; the relocation gate binds them to current Texture2D locators.
+_TARGETS_BY_BUILD["26097464"] = {
+    _PREFIX + "53eac8afc5b57b0740ef08e062c1268b.bundle":
+        ("CAB-a0006646bf97d91cc831e47e152989af", "506252c273a6a770a8547d1c299386760fe8f0c05c2f7ba2277e8da2854ae792"),
+    _PREFIX + "b50ba8b5464ec4de8ea55b111bbad63a.bundle":
+        ("CAB-fbb713bd85569f8101272a4763ea6bc0", "b09d2e824819be5a672cc5211b69e2c4e339181426a2c40dcbe2a283e984209f"),
+}
+# 26138768 moved the tutorial bundle again (same CAB, new path/bytes); the banner
+# bundle is byte-identical. The same relocation evidence gate applies.
+_TARGETS_BY_BUILD["26138768"] = {
+    _PREFIX + "b495bc337d998091a40d0c5cebf7b587.bundle":
+        ("CAB-a0006646bf97d91cc831e47e152989af", "6fbec86410d658743b498efc3ed071d480b8f96f1603fa61cdd8e577e68dbac4"),
+    _PREFIX + "b50ba8b5464ec4de8ea55b111bbad63a.bundle":
+        ("CAB-fbb713bd85569f8101272a4763ea6bc0", "b09d2e824819be5a672cc5211b69e2c4e339181426a2c40dcbe2a283e984209f"),
+}
 _CURRENT_IDS = frozenset({
     "ckf-image:10fa5342868340bff4037730a670069c2e6e4eef7bf090150f2780354c248e71",
     "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
@@ -81,6 +97,26 @@ _CURRENT_IDS = frozenset({
     "ckf-image:f9cb0933f1e81af8cc9b0d9ba4a308f110c7af7ca98285c60ee119b3077360b6",
 })
 
+
+# Historical selected scope for the bounded 26097464/26138768 relocation lane.
+RELOCATION_IDS = frozenset({
+    'ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204',
+    'ckf-image:35f5cc5cc055b936df5ba6cf9ece3da2216d315325b57081b52e24b6e72d8805',
+    'ckf-image:43991411c1b1c9cb9f5eae019dd770f1e38fa21956c9feed2d8e2356a76dcb1a',
+    'ckf-image:462779d03956d564c85cdd5ae1d56cc7705e3dfc32b28bc2f00ca328f7c87419',
+    'ckf-image:5839833ff1ea3612c87a05fe4c0395d3cfcb36a8c0565efb6fef705763fcd07d',
+    'ckf-image:6c46f4faa8be3818380e8e899c0003a392126dfa830145347f0baf15b05760f8',
+    'ckf-image:81217ca4baf4fb79b81a1a4a232b6d3a56fb7a945149d2fe6fd5ae8bf0d4416c',
+    'ckf-image:8f86df2a12380c113d23a6a87f32b98e08c8354ebf0c7c26a507d44390fad5cd',
+    'ckf-image:959312b069b2623dfad1a642f3f130aac7b578357eefcc7d8dd151a0f9dec709',
+    'ckf-image:962554279f206d7f3b54433efbbff3334408cd1ee5073cc6f183786eecf8c631',
+    'ckf-image:c08ef01819bdac7c2aab9987fe6ccd72c066da7d0edbb5b1ff99a4cf9104ce5d',
+    'ckf-image:cdd3e1ed2e58a935c83dc0d06c7e6c13de1a2a2fed97b0a9e7232fe7e42fd353',
+    'ckf-image:d32acc60a653bf9c704dcd7a7ac4747f0e3c06844837f3fdff6dc2a1c4746fe2',
+    'ckf-image:d4a5d3d283108352084f19c27bbf52b35738bc012f2312f342fac689ce0f7ea7',
+    'ckf-image:da5c48a987c641e264fb2fdf43f53223dd11a49ce3a31fc2eb72b602135920ad',
+    'ckf-image:e2e6c28b3728ed018900074010c260f450b4951b7d80d73a62c42f4c725c7ab5',
+})
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -132,6 +168,8 @@ def validate_record(record: Mapping, *, source_build: str = "25594089") -> None:
     if not isinstance(record, Mapping):
         raise ImagePatchError("image record must be an object")
     targets = _profile(source_build)
+    if source_build in ("26097464", "26138768"):
+        raise ImagePatchError(source_build + " uses historical records through the relocation evidence gate")
     declared_build = record.get("source_build")
     if source_build == "25594089":
         if declared_build not in (None, "25594089"):

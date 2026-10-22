@@ -6,11 +6,13 @@ continues to require every image and every in-game check to pass.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import zipfile
 from pathlib import Path, PurePosixPath
 
 from .ckf_install import no_links
-from .image_patch import get_source_profile
+from .image_patch import RELOCATION_IDS, _CURRENT_IDS, get_source_profile
 from .util import GlocError, file_hash, read_json, read_jsonl
 
 
@@ -23,6 +25,17 @@ _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _ID = re.compile(r"ckf-image:[0-9a-f]{64}\Z")
 _REGION = re.compile(r"ckf-image:[0-9a-f]{64}:region:[1-9][0-9]*\Z")
 _TARGETS = tuple(get_source_profile(_BUILD))
+RELOCATION_ARCHIVE_SHA256 = "4833ae1876c9572100815df8045948eba80717182f4b894ba332fcbaad96983f"
+# Exact preservation accounting of the two current image bundles per relocation build.
+RELOCATION_COUNTS = {
+    "26097464": {"total_objects": 5942, "unchanged_objects": 5942,
+                 "total_texture_streams": 1928, "selected_texture_streams": 16,
+                 "unchanged_nonselected_texture_streams": 1912},
+    # The tutorial bundle gained one Texture2D/Sprite pair (MissionIcon_StreetMix2).
+    "26138768": {"total_objects": 5944, "unchanged_objects": 5944,
+                 "total_texture_streams": 1929, "selected_texture_streams": 16,
+                 "unchanged_nonselected_texture_streams": 1913},
+}
 
 
 def _need(condition: bool, message: str) -> None:
@@ -80,6 +93,8 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
     ``rows`` is the distribution builder's map of target path to one staged file
     row.  No source bytes are written or regenerated here.
     """
+    if build in RELOCATION_COUNTS:
+        return _validate_relocated_partial_images(stage, rows, build)
     if build in ("25889011", "25951469", "25964281"):
         return _validate_reused_partial_images(stage, rows, build)
     _need(build == _BUILD, "partial lane is pinned to Steam build 25697586")
@@ -391,5 +406,209 @@ def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict
                     evidence_source_build=_BUILD)
     previous["evidence_sha256"] = {**previous["evidence_sha256"],
         "reuse_stage_manifest": file_hash(manifest_path), "reuse_receipt": file_hash(receipt_path),
+        "current_machine_report": file_hash(machine_path)}
+    return previous
+
+
+def _released_relocation_evidence(stage: Path, receipt: dict) -> tuple[dict, dict, dict, dict]:
+    """Read hash-anchored static evidence without claiming unavailable game QA."""
+    from .ckf_distribution import UPDATE_25951469_TARGETS, UPDATE_25964281_GUARDS
+
+    _need(receipt.get("historical_ingame_evidence_available") is False and
+          receipt.get("prior_archive_sha256") == RELOCATION_ARCHIVE_SHA256,
+          "invalid released image evidence anchor")
+    archive_value, prior_value = receipt.get("prior_archive"), receipt.get("prior_image_stage")
+    _need(all(isinstance(x, str) and Path(x).is_absolute() for x in (archive_value, prior_value)),
+          "invalid released image evidence paths")
+    archive = no_links(Path(archive_value))
+    _need(archive.is_file() and not archive.is_relative_to(stage) and
+          file_hash(archive) == RELOCATION_ARCHIVE_SHA256, "released image archive hash mismatch")
+    try:
+        with zipfile.ZipFile(archive) as packed:
+            name = "cyberknights-ko/manifest.json"
+            _need(packed.namelist().count(name) == 1 and packed.getinfo(name).file_size < 1048576,
+                  "invalid released image manifest entry")
+            released = json.loads(packed.read(name))
+    except (zipfile.BadZipFile, KeyError, UnicodeError, ValueError) as exc:
+        raise GlocError("Partial image evidence: invalid released archive manifest") from exc
+    _need(isinstance(released, dict) and released.get("format") == "ckf-distribution-v2" and
+          released.get("steam_build") == "25964281" and released.get("revision") == 1 and
+          released.get("patch_id") == "25964281-rc1" and
+          released.get("human_language_approval") is False and released.get("full_game_qa") is False,
+          "wrong released image package identity")
+    released_files = _index(released.get("files"), "path", "released package targets", count=6)
+    _need(set(released_files) == set(UPDATE_25951469_TARGETS + _TARGETS), "wrong released package targets")
+    guard_rows = _index(released.get("guards"), "path", "released package guards", count=2)
+    _need({p: r.get("sha256") for p, r in guard_rows.items()} == UPDATE_25964281_GUARDS,
+          "released package guard/build mismatch")
+    previous = released.get("image_status")
+    _need(isinstance(previous, dict) and previous.get("format") == "ckf-partial-image-summary-v1" and
+          previous.get("source_build") == "25964281" and previous.get("evidence_source_build") == _BUILD and
+          previous.get("complete") is False and previous.get("human_language_approval") is False and
+          previous.get("full_game_qa") is False and previous.get("rendered_regions") == 67 and
+          previous.get("ingame_observed_ids") == [] and
+          _ids(previous.get("edited_ids"), "released selected IDs", count=16) == RELOCATION_IDS and
+          _ids(previous.get("ingame_not_run_ids"), "released not-run IDs", count=16) == RELOCATION_IDS,
+          "released image summary mismatch")
+    partial = _ids(previous.get("partial_ids"), "released partial IDs", count=11)
+    held = _ids(previous.get("held_ids"), "released held IDs", count=2)
+    unrendered = _ids(previous.get("unrendered_ids"), "released unrendered IDs", count=14)
+    retained = _ids(previous.get("retained_ids"), "released retained IDs", count=1)
+    _need(partial <= RELOCATION_IDS and retained == {_WEAPON_ID} and
+          len(RELOCATION_IDS | held | unrendered | retained) == 33 and
+          RELOCATION_IDS | held | unrendered | retained == _CURRENT_IDS,
+          "released image scope/partition mismatch")
+    fingerprints = previous.get("evidence_sha256")
+    _need(isinstance(fingerprints, dict) and all(isinstance(h, str) and _SHA.fullmatch(h)
+          for h in fingerprints.values()), "invalid released evidence hashes")
+    prior_stage = no_links(Path(prior_value)).resolve()
+    _need(not prior_stage.is_relative_to(stage) and not stage.is_relative_to(prior_stage),
+          "overlapping image relocation inputs")
+    manifest_path = _file(prior_stage, "manifest.json")
+    _need(file_hash(manifest_path) == fingerprints.get("stage_manifest") == receipt.get("prior_manifest_sha256"),
+          "stale released prior image manifest")
+    manifest = read_json(manifest_path)
+    _need(isinstance(manifest, dict) and manifest.get("format") == "ckf-local-asset-overlay-v1" and
+          manifest.get("local_only") is True and manifest.get("release_approved") is False,
+          "unsafe released prior image stage")
+    prior_files = _index(manifest.get("files"), "path", "released prior image bundles", count=2)
+    _need(set(prior_files) == set(_TARGETS), "wrong released prior image targets")
+    for path, item in prior_files.items():
+        _need(item.get("before") == released_files[path].get("before") == get_source_profile(_BUILD)[path][1] and
+              item.get("after") == released_files[path].get("after") and
+              file_hash(_file(prior_stage, item.get("payload"))) == item["after"],
+              "released prior image payload mismatch")
+    paths, hashes = _hashes(prior_stage.parent, {
+        "records": "image-records.jsonl", "edits": "image-edits.combined.v1.jsonl",
+        "build_report": "available-build-report-v1.json", "machine_report": "available-readback-machine.v1.json",
+        "selected_qa": "image-qa.selected.v1.jsonl", "visual_qa": "available-decoded-visual-qa.v1.json",
+        "render_report": "render-report.combined.v1.json", "final_qa": "image-qa.available-final.v1.jsonl",
+    })
+    _need(all(h == fingerprints.get(k) for k, h in hashes.items()), "retained released image evidence hash mismatch")
+    records = _index(read_jsonl(paths["records"]), "id", "released image records", count=33)
+    edits = _index(read_jsonl(paths["edits"]), "image_id", "released image edits", count=16)
+    report, machine = read_json(paths["build_report"]), read_json(paths["machine_report"])
+    _need(set(records) == _CURRENT_IDS and set(edits) == RELOCATION_IDS and
+          all(r.get("source_build") == _BUILD for r in records.values()) and
+          isinstance(report, dict) and report.get("source_build") == _BUILD and report.get("complete") is False and
+          report.get("physical_save_reload_verified") is True and
+          isinstance(machine, dict) and machine.get("source_build") == _BUILD and
+          machine.get("status") == "PASS" and machine.get("complete") is False and
+          machine.get("build_report_sha256") == hashes["build_report"], "released static/machine evidence mismatch")
+    results = _index(machine.get("results"), "id", "released machine results", count=16)
+    _need(set(results) == RELOCATION_IDS, "released machine scope mismatch")
+    return previous, records, results, prior_files
+
+
+def _validate_relocated_partial_images(stage: Path, rows: dict, build: str) -> dict:
+    """Bind reviewed historical streams to current locators, without new QA.
+
+    The local Unity bridge supplies machine evidence; this stdlib gate checks
+    its identity, preservation accounting and hashes against the original
+    released archive's retained evidence and the exact current package inputs.
+    """
+    from .ckf_distribution import relocation_profile
+
+    profile = relocation_profile(build)
+    stage = no_links(Path(stage)).resolve()
+    receipt_path = _file(stage, "migration-validation.json")
+    receipt = read_json(receipt_path)
+    _need(isinstance(receipt, dict) and receipt.get("format") == "ckf-image-relocation-v1" and
+          receipt.get("source_build") == build and receipt.get("evidence_source_build") == _BUILD and
+          receipt.get("current_ingame") == "NOT_RUN", "invalid image relocation receipt")
+    previous, records, prior_results, prior_files = _released_relocation_evidence(stage, receipt)
+
+    source_profile = get_source_profile(build)
+    targets = tuple(source_profile)
+    expected_originals = {**profile["originals"], **{p: h for p, (_, h) in source_profile.items()}}
+    _need(set(rows) == set(profile["targets"] + targets), "wrong six-file relocation package targets")
+    for path, before in expected_originals.items():
+        _need(rows[path][0].get("before") == before, "relocation original target hash mismatch")
+    manifest_path = _file(stage, "manifest.json")
+    manifest = read_json(manifest_path)
+    _need(isinstance(manifest, dict) and manifest.get("format") == "ckf-local-asset-overlay-v1" and
+          manifest.get("local_only") is True and manifest.get("release_approved") is False,
+          "unsafe relocated image stage")
+    files = _index(manifest.get("files"), "path", "relocated image bundles", count=2)
+    _need(set(files) == set(targets), "wrong relocated image targets")
+    guards = _index(manifest.get("guards"), "path", "relocated image guards", count=2)
+    _need({p: r.get("sha256") for p, r in guards.items()} == profile["guards"],
+          "image relocation guard/build mismatch")
+    for path, item in files.items():
+        after = item.get("after")
+        _need(item.get("before") == source_profile[path][1] and isinstance(after, str) and
+              _SHA.fullmatch(after) and after != item["before"] and
+              isinstance(item.get("payload"), str) and re.fullmatch(r"[0-9]+\.bin", item["payload"]) and
+              rows[path][0].get("after") == after and
+              file_hash(_file(stage, item["payload"])) == after,
+              "relocated source/payload bytes differ")
+    _need(files[targets[1]]["after"] == prior_files[_TARGETS[1]]["after"],
+          "relocated banner must reuse reviewed payload bytes")
+
+    machine_path = _file(stage.parent, "image-current-machine-check.json")
+    _need(file_hash(machine_path) == receipt.get("current_machine_report_sha256"),
+          "stale current image machine check")
+    machine = read_json(machine_path)
+    _need(isinstance(machine, dict) and machine.get("format") == "ckf-image-relocation-machine-v1" and
+          machine.get("status") == "PASS" and machine.get("source_build") == build and
+          machine.get("evidence_source_build") == _BUILD and machine.get("complete") is False and
+          machine.get("current_ingame") == "NOT_RUN" and
+          machine.get("historical_ingame_evidence_available") is False and
+          machine.get("human_language_approval") is False and machine.get("full_game_qa") is False and
+          machine.get("current_stage_manifest_sha256") == file_hash(manifest_path) and
+          all(machine.get(k) == receipt[k] for k in ("prior_manifest_sha256", "prior_archive_sha256")) and
+          all(machine.get(k) is True for k in ("non_target_objects_unchanged", "member_metadata_unchanged",
+                  "nonselected_streams_unchanged", "stream_ranges_valid", "physical_save_reload_verified")),
+          "current relocation preservation proof failed")
+    counts = machine.get("counts")
+    fields = ("total_objects", "unchanged_objects", "total_texture_streams",
+              "selected_texture_streams", "unchanged_nonselected_texture_streams")
+    _need(isinstance(counts, dict) and all(type(counts.get(k)) is int and counts[k] > 0 for k in fields) and
+          counts["total_objects"] == counts["unchanged_objects"] >= 16 and
+          counts["total_texture_streams"] <= counts["total_objects"] and
+          counts["selected_texture_streams"] == 16 and
+          counts["total_texture_streams"] == counts["unchanged_nonselected_texture_streams"] + 16 and
+          counts == RELOCATION_COUNTS[build],
+          "current relocation preservation counts mismatch")
+    checked = _index(machine.get("results"), "id", "relocated image results", count=16)
+    _need(set(checked) == set(previous["edited_ids"]), "relocated image scope mismatch")
+    locators = set()
+    for key, item in checked.items():
+        record, old = records[key], prior_results[key]
+        bundle = targets[1] if key == _BANNER_ID else targets[0]
+        path_id = item.get("path_id")
+        _need(item.get("source_build") == build and item.get("bundle_path") == bundle and
+              item.get("bundle_sha256") == item.get("after") == files[bundle]["after"] and
+              item.get("before") == files[bundle]["before"] and
+              item.get("serialized_file") == source_profile[bundle][0] and
+              type(path_id) is int and -(1 << 63) <= path_id < (1 << 63) and
+              item.get("name") == record.get("name") and isinstance(item.get("name"), str) and
+              all(type(item.get(k)) is int and item[k] == record.get(k) for k in ("width", "height", "format")),
+              "relocated image locator/metadata mismatch")
+        locator = (bundle, item["serialized_file"], path_id)
+        _need(locator not in locators, "duplicate relocated image locator")
+        locators.add(locator)
+        _need(item.get("source_stream_sha256") == item.get("prior_source_stream_sha256") == record["stream"]["sha256"] and
+              item.get("source_stream_exact_match") is True and
+              item.get("source_pixels_exact_match") is True and item.get("edited_stream_exact_match") is True and
+              all(isinstance(item.get(k), str) and _SHA.fullmatch(item[k]) for k in
+                  ("source_decoded_pixels_sha256", "prior_source_decoded_pixels_sha256",
+                   "edited_stream_sha256", "prior_edited_stream_sha256")) and
+              item["source_decoded_pixels_sha256"] == item["prior_source_decoded_pixels_sha256"] and
+              item["edited_stream_sha256"] == item["prior_edited_stream_sha256"] and
+              item.get("decoded_pixels_sha256") == old["decoded_pixels_sha256"] and
+              _ids(item.get("selected_region_ids"), "relocation selected regions", region=True) ==
+              set(old["selected_region_ids"]) and
+              item.get("outside_edit_pixels_or_nonselected_dxt_blocks_unchanged") is True and
+              item.get("protected_pixels_unchanged") is True,
+              "relocated image stream/pixel preservation failed")
+        if key == _BANNER_ID:
+            _need(item.get("alpha_unchanged") is True, "relocated banner alpha preservation failed")
+    previous.update(source_build=build, evidence_source_build=_BUILD,
+                    ingame_observed_ids=[], ingame_not_run_ids=list(previous["edited_ids"]),
+                    historical_ingame_evidence_available=False)
+    previous["evidence_sha256"] = {**previous["evidence_sha256"],
+        "relocation_stage_manifest": file_hash(manifest_path), "relocation_receipt": file_hash(receipt_path),
+        "prior_archive": RELOCATION_ARCHIVE_SHA256,
         "current_machine_report": file_hash(machine_path)}
     return previous
