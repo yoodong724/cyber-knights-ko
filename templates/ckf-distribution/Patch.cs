@@ -45,7 +45,7 @@ public static class CkfPatch {
         "b09d2e824819be5a672cc5211b69e2c4e339181426a2c40dcbe2a283e984209f",
     };
     // Builds whose reviewed image streams are relocated from the 25964281-rc1 evidence.
-    static bool Relocated(string build) { return build=="26097464" || build=="26138768"; }
+    static bool Relocated(string build) { return build=="26097464" || build=="26138768" || build=="26151125"; }
     static readonly string[] RelocationIds = {
         "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
         "ckf-image:35f5cc5cc055b936df5ba6cf9ece3da2216d315325b57081b52e24b6e72d8805",
@@ -163,6 +163,7 @@ public static class CkfPatch {
         Require(Text(root,"patch_id")==id,"Inconsistent version");
         if(build=="26097464") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.99","26097464 requires its six-file image profile");
         if(build=="26138768") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.101","26138768 requires its six-file image profile");
+        if(build=="26151125") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.103","26151125 requires its six-file image profile");
         string[] paths;
         if(format=="ckf-distribution-v1") {
             paths=(string[])BasePaths.Clone();
@@ -259,6 +260,12 @@ public static class CkfPatch {
                     result.Guards[Guards[1]]=="56778d83a2fd108ebab4311a6639b9705750fb967705ff9a6852ef1c977f9d13","Guard/build profile mismatch");
             for(int i=0;i<paths.Length;i++) Require(result.Files[i].Before==Originals26138768[i],"Original target/build profile mismatch");
             Require(result.Files[1].After=="d23a95d170c98458973281a24c15b06b5e1065bdab6eda0d533880f2ee0730cc","Unverified 26138768 font result");
+        }
+        if(build=="26151125") {
+            Require(result.Guards[Guards[0]]=="0538c1abc7a51cae89ebfba154c2f84067f28c66393c50c7db213bbc0e900caa" &&
+                    result.Guards[Guards[1]]=="56778d83a2fd108ebab4311a6639b9705750fb967705ff9a6852ef1c977f9d13","Guard/build profile mismatch");
+            for(int i=0;i<paths.Length;i++) Require(result.Files[i].Before==Originals26138768[i],"Original target/build profile mismatch");
+            Require(result.Files[1].After=="d23a95d170c98458973281a24c15b06b5e1065bdab6eda0d533880f2ee0730cc","Unverified 26151125 font result");
         }
         if(format=="ckf-distribution-v2" && (build=="25889011" || build=="25951469" || build=="25964281" || Relocated(build))) Require(result.PartialImageNotice!=null,build+" images require partial status");
         if(format=="ckf-distribution-v2" && build!="25889011" && build!="25951469" && build!="25964281" && !Relocated(build)) {

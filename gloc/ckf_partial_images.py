@@ -35,6 +35,9 @@ RELOCATION_COUNTS = {
     "26138768": {"total_objects": 5944, "unchanged_objects": 5944,
                  "total_texture_streams": 1929, "selected_texture_streams": 16,
                  "unchanged_nonselected_texture_streams": 1913},
+    "26151125": {"total_objects": 5944, "unchanged_objects": 5944,
+                 "total_texture_streams": 1929, "selected_texture_streams": 16,
+                 "unchanged_nonselected_texture_streams": 1913},
 }
 
 
