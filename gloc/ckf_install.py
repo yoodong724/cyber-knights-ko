@@ -38,8 +38,10 @@ GUARDS_26151125 = {
     ENGLISH: "0538c1abc7a51cae89ebfba154c2f84067f28c66393c50c7db213bbc0e900caa",
     CATALOG: "56778d83a2fd108ebab4311a6639b9705750fb967705ff9a6852ef1c977f9d13",
 }
+# 26198171 keeps the verified font bytes; both locale/catalog guards changed.
+GUARDS_26198171 = {ENGLISH: "8d14bf5d963269952c29b380c1eeb79b3896d167c165a600cbda7549dfb048b7", CATALOG: "0e733e4dce50c564916044fd4b99c3d58647bf275a56d0c538282ad615846574"}
 # Guard sets whose font bundle is FONT_26097464 with FONT_26097464_PROFILE.
-CURRENT_FONT_GUARDS = (GUARDS_26097464, GUARDS_26138768, GUARDS_26151125)
+CURRENT_FONT_GUARDS = (GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171)
 # Independently rebuilt current bundle: only Font.m_FontData was replaced;
 # all other 23 objects are unchanged. No caller-supplied result hash is accepted.
 FONT_26097464_PROFILE = {
