@@ -65,6 +65,12 @@ _TARGETS_BY_BUILD["26138768"] = {
 _TARGETS_BY_BUILD["26151125"] = dict(_TARGETS_BY_BUILD["26138768"])
 # Current image bundles were independently mapped by CAB, streams and pixels.
 _TARGETS_BY_BUILD["26198171"] = {'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/804228c7e0a40ff579ed96ad65e37333.bundle': ('CAB-a0006646bf97d91cc831e47e152989af', '5c0d00b591057234a86e8e1cc4a527dd6591d59baf9215ca585303f38b98e351'), 'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/d31ee332273542d2e40d9d454e972012.bundle': ('CAB-fbb713bd85569f8101272a4763ea6bc0', '7177b7ccde4e3a809c88c6cdd901d47b334a0001cd0af801c7c6155d2625f876')}
+_TARGETS_BY_BUILD["26299178"] = {
+    _PREFIX + "804228c7e0a40ff579ed96ad65e37333.bundle":
+        ("CAB-a0006646bf97d91cc831e47e152989af", "5c0d00b591057234a86e8e1cc4a527dd6591d59baf9215ca585303f38b98e351"),
+    _PREFIX + "d6e3f8f22e51d80390d490d497295666.bundle":
+        ("CAB-fbb713bd85569f8101272a4763ea6bc0", "c7105dfabe3ff538452404b36ac3ea725c4528f54b6281ea96806516dc2a9cee"),
+}
 _CURRENT_IDS = frozenset({
     "ckf-image:10fa5342868340bff4037730a670069c2e6e4eef7bf090150f2780354c248e71",
     "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
@@ -172,7 +178,7 @@ def validate_record(record: Mapping, *, source_build: str = "25594089") -> None:
     if not isinstance(record, Mapping):
         raise ImagePatchError("image record must be an object")
     targets = _profile(source_build)
-    if source_build in ("26097464", "26138768", "26151125", "26198171"):
+    if source_build in ("26097464", "26138768", "26151125", "26198171", "26299178"):
         raise ImagePatchError(source_build + " uses historical records through the relocation evidence gate")
     declared_build = record.get("source_build")
     if source_build == "25594089":
