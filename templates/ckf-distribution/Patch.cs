@@ -61,7 +61,7 @@ public static class CkfPatch {
         "c7105dfabe3ff538452404b36ac3ea725c4528f54b6281ea96806516dc2a9cee",
     };
     // Builds whose reviewed image streams are relocated from the 25964281-rc1 evidence.
-    static bool Relocated(string build) { return build=="26097464" || build=="26138768" || build=="26151125" || build=="26198171" || build=="26299178" || build=="26350623"; }
+    static bool Relocated(string build) { return build=="26097464" || build=="26138768" || build=="26151125" || build=="26198171" || build=="26299178" || build=="26350623" || build=="26356887"; }
     static readonly string[] RelocationIds = {
         "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
         "ckf-image:35f5cc5cc055b936df5ba6cf9ece3da2216d315325b57081b52e24b6e72d8805",
@@ -183,6 +183,7 @@ public static class CkfPatch {
         if(build=="26198171") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.105","26198171 requires its six-file image profile");
         if(build=="26299178") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.107","26299178 requires its six-file image profile");
         if(build=="26350623") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.109","26350623 requires its six-file image profile");
+        if(build=="26356887") Require(format=="ckf-distribution-v2" && Text(root,"game_version")=="2.7.111","26356887 requires its six-file image profile");
         string[] paths;
         if(format=="ckf-distribution-v1") {
             paths=(string[])BasePaths.Clone();
@@ -209,7 +210,7 @@ public static class CkfPatch {
             paths[4]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/804228c7e0a40ff579ed96ad65e37333.bundle";
             paths[5]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/d31ee332273542d2e40d9d454e972012.bundle";
         }
-        if(build=="26299178" || build=="26350623") {
+        if(build=="26299178" || build=="26350623" || build=="26356887") {
             paths[2]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/0b9348cc08538730c3f67ad3b0747855.bundle";
             paths[3]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/c8ff7ba58183d5beda8e7cdce8c2ebfa.bundle";
             paths[4]="CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/804228c7e0a40ff579ed96ad65e37333.bundle";
@@ -315,6 +316,13 @@ public static class CkfPatch {
                     result.Guards[Guards[1]]=="3f0e9d67e578f75345399fec3e82d3b2c1c1a4742b5e123ba8e23b8726164d55","Guard/build profile mismatch");
             for(int i=0;i<paths.Length;i++) Require(result.Files[i].Before==Originals26299178[i],"Original target/build profile mismatch");
             Require(result.Files[1].After=="d23a95d170c98458973281a24c15b06b5e1065bdab6eda0d533880f2ee0730cc","Unverified 26350623 font result");
+        }
+        if(build=="26356887") {
+            Require(result.Guards[Guards[0]]=="03e792f90fffc8ac83fee9b12667da95ad4d1973e3fccea1f2acb53442d56a55" &&
+                    result.Guards[Guards[1]]=="3f0e9d67e578f75345399fec3e82d3b2c1c1a4742b5e123ba8e23b8726164d55","Guard/build profile mismatch");
+            Require(result.Files[0].Before=="3cae61afec22b6840ecb17a0b8d8395856e238c599303f23fd909e232e1f29c7","Original target/build profile mismatch");
+            for(int i=1;i<paths.Length;i++) Require(result.Files[i].Before==Originals26299178[i],"Original target/build profile mismatch");
+            Require(result.Files[1].After=="d23a95d170c98458973281a24c15b06b5e1065bdab6eda0d533880f2ee0730cc","Unverified 26356887 font result");
         }
         if(format=="ckf-distribution-v2" && (build=="25889011" || build=="25951469" || build=="25964281" || Relocated(build))) Require(result.PartialImageNotice!=null,build+" images require partial status");
         if(format=="ckf-distribution-v2" && build!="25889011" && build!="25951469" && build!="25964281" && !Relocated(build)) {
