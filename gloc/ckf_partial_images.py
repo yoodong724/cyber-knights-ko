@@ -28,6 +28,9 @@ _TARGETS = tuple(get_source_profile(_BUILD))
 RELOCATION_ARCHIVE_SHA256 = "4833ae1876c9572100815df8045948eba80717182f4b894ba332fcbaad96983f"
 # Exact preservation accounting of the two current image bundles per relocation build.
 RELOCATION_COUNTS = {
+    "26350623": {"total_objects": 5946, "unchanged_objects": 5946,
+                 "total_texture_streams": 1930, "selected_texture_streams": 16,
+                 "unchanged_nonselected_texture_streams": 1914},
     "26299178": {"total_objects": 5946, "unchanged_objects": 5946,
                  "total_texture_streams": 1930, "selected_texture_streams": 16,
                  "unchanged_nonselected_texture_streams": 1914},
@@ -552,9 +555,9 @@ def _validate_relocated_partial_images(stage: Path, rows: dict, build: str) -> d
               file_hash(_file(stage, item["payload"])) == after,
               "relocated source/payload bytes differ")
     # Earlier relocation builds kept the entire banner bundle byte-identical.
-    # 26198171 repacked that bundle too; its pinned original and the full
+    # 26198171 repacked that bundle too (26299178/26350623 reuse that layout); its pinned original and the full
     # stream/pixel/non-target checks below bind the reviewed banner content.
-    if build not in ("26198171", "26299178"):
+    if build not in ("26198171", "26299178", "26350623"):
         _need(files[targets[1]]["after"] == prior_files[_TARGETS[1]]["after"],
               "relocated banner must reuse reviewed payload bytes")
 
