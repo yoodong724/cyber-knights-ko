@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from .ckf_install import (CHINESE, FONT, FONT_26097464, FONT_26097464_PROFILE,
-                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, no_links, disjoint, valid_hash)
+                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, no_links, disjoint, valid_hash)
 from .image_patch import get_source_profile
 from .util import GlocError, file_hash, read_json, read_jsonl, require_new_output, write_json
 
@@ -74,9 +74,18 @@ UPDATE_26350623_ORIGINALS = dict(UPDATE_26299178_ORIGINALS)
 # 26356887 changes the Chinese locale original; bundle originals are unchanged.
 UPDATE_26356887_GUARDS = dict(GUARDS_26356887)
 UPDATE_26356887_ORIGINALS = {**UPDATE_26350623_ORIGINALS, CHINESE: "3cae61afec22b6840ecb17a0b8d8395856e238c599303f23fd909e232e1f29c7"}
+# 26415486 relocates the fallback bundle; the remaining bundle originals are unchanged.
+UPDATE_26415486_TARGETS = (*UPDATE_26299178_TARGETS[:3],
+    'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/825ea76e29ad6e0fcbcf4feb4c7f0a92.bundle')
+UPDATE_26415486_GUARDS = dict(GUARDS_26415486)
+UPDATE_26415486_ORIGINALS = dict(zip(UPDATE_26415486_TARGETS, (
+    '711b0795aa0a689b43b35049b6ee7c02beb92ac311362e5f0625fa107a6f56e2',
+    UPDATE_26356887_ORIGINALS[FONT_26097464],
+    UPDATE_26356887_ORIGINALS[UPDATE_26415486_TARGETS[2]],
+    'e7975b201477b63e9f41252e1b3fe98fe34472f729521bb48c4435f5c0e8ecec')))
 # Builds whose tutorial image streams are relocated from the released 25964281-rc1
 # evidence instead of reusing old bundle bytes; only that evidence lane permits this.
-RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887')
+RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486')
 # Explicit update profiles.
 UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
 
@@ -96,7 +105,9 @@ def relocation_profile(build: str) -> dict | None:
             '26350623': {'game_version': '2.7.109', 'targets': UPDATE_26299178_TARGETS,
                          'guards': UPDATE_26350623_GUARDS, 'originals': UPDATE_26350623_ORIGINALS},
             '26356887': {'game_version': '2.7.111', 'targets': UPDATE_26299178_TARGETS,
-                         'guards': UPDATE_26356887_GUARDS, 'originals': UPDATE_26356887_ORIGINALS}}.get(build)
+                         'guards': UPDATE_26356887_GUARDS, 'originals': UPDATE_26356887_ORIGINALS},
+            '26415486': {'game_version': '2.7.113', 'targets': UPDATE_26415486_TARGETS,
+                         'guards': UPDATE_26415486_GUARDS, 'originals': UPDATE_26415486_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
@@ -110,7 +121,8 @@ def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
             '26198171': (UPDATE_26198171_TARGETS, UPDATE_26198171_GUARDS),
             '26299178': (UPDATE_26299178_TARGETS, UPDATE_26299178_GUARDS),
             '26350623': (UPDATE_26299178_TARGETS, UPDATE_26350623_GUARDS),
-            '26356887': (UPDATE_26299178_TARGETS, UPDATE_26356887_GUARDS)}.get(build)
+            '26356887': (UPDATE_26299178_TARGETS, UPDATE_26356887_GUARDS),
+            '26415486': (UPDATE_26415486_TARGETS, UPDATE_26415486_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
