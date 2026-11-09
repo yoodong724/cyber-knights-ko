@@ -23,8 +23,8 @@ python tools/build_ckf_locale_stage.py stage --snapshot <snapshot> --translation
 # 3. 배포 ZIP 생성 (이미지 포함, 새 빌드의 첫 패키지는 revision 0)
 python tools/build_ckf_distribution.py --authorize-package --original <원본> \
   --stage <locale-stage> --stage <자막-stage> --stage <이미지-stage> --allow-partial-images \
-  --build 26509480 --game-version 2.7.115 --revision 0 --out <출력> --work <새-작업-폴더>
+  --build 26548517 --game-version 2.7.117 --revision 0 --out <출력> --work <새-작업-폴더>
 ```
 
-빌드 도구는 지원하는 Steam 빌드(현재 26509480, 이전 26415486·26356887·26350623·26299178·26198171·26151125·26138768·26097464·25964281·25951469·25889011 등)마다 고정한 대상 경로·보호 파일 해시와 원본 해시, stage 해시, 차분 복원 결과와 ZIP 구성 파일을 검사합니다. 다른 빌드의 원본이면 거부합니다.
+빌드 도구는 지원하는 Steam 빌드(현재 26548517, 이전 26509480·26415486·26356887·26350623·26299178·26198171·26151125·26138768·26097464·25964281·25951469·25889011 등)마다 고정한 대상 경로·보호 파일 해시와 원본 해시, stage 해시, 차분 복원 결과와 ZIP 구성 파일을 검사합니다. 대상 파일 또는 보호 파일의 해시가 다르면 거부합니다. 해시가 같은 빌드는 구별하지 못합니다.
 같은 입력으로 다시 빌드하면 ZIP 안의 파일 내용은 배포본과 같습니다. ZIP에 기록되는 파일 시각만 달라 ZIP 전체 해시는 달라집니다.

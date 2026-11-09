@@ -86,9 +86,13 @@ UPDATE_26415486_ORIGINALS = dict(zip(UPDATE_26415486_TARGETS, (
 UPDATE_26509480_TARGETS = UPDATE_26415486_TARGETS
 UPDATE_26509480_GUARDS = dict(GUARDS_26509480)
 UPDATE_26509480_ORIGINALS = {**UPDATE_26415486_ORIGINALS, CHINESE: "c7acaec5273b32c49df604ff679e77b38347eae72b60b0d6b139be8f75f65177"}
+# 26548517 retains all six target originals and both guards byte-for-byte.
+UPDATE_26548517_TARGETS = UPDATE_26509480_TARGETS
+UPDATE_26548517_GUARDS = dict(UPDATE_26509480_GUARDS)
+UPDATE_26548517_ORIGINALS = dict(UPDATE_26509480_ORIGINALS)
 # Builds whose tutorial image streams are relocated from the released 25964281-rc1
 # evidence instead of reusing old bundle bytes; only that evidence lane permits this.
-RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480')
+RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517')
 # Explicit update profiles.
 UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
 
@@ -111,7 +115,8 @@ def relocation_profile(build: str) -> dict | None:
                          'guards': UPDATE_26356887_GUARDS, 'originals': UPDATE_26356887_ORIGINALS},
             '26415486': {'game_version': '2.7.113', 'targets': UPDATE_26415486_TARGETS,
                          'guards': UPDATE_26415486_GUARDS, 'originals': UPDATE_26415486_ORIGINALS},
-            '26509480': {'game_version': '2.7.115', 'targets': UPDATE_26509480_TARGETS, 'guards': UPDATE_26509480_GUARDS, 'originals': UPDATE_26509480_ORIGINALS}}.get(build)
+            '26509480': {'game_version': '2.7.115', 'targets': UPDATE_26509480_TARGETS, 'guards': UPDATE_26509480_GUARDS, 'originals': UPDATE_26509480_ORIGINALS},
+            '26548517': {'game_version': '2.7.117', 'targets': UPDATE_26548517_TARGETS, 'guards': UPDATE_26548517_GUARDS, 'originals': UPDATE_26548517_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
@@ -127,7 +132,8 @@ def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
             '26350623': (UPDATE_26299178_TARGETS, UPDATE_26350623_GUARDS),
             '26356887': (UPDATE_26299178_TARGETS, UPDATE_26356887_GUARDS),
             '26415486': (UPDATE_26415486_TARGETS, UPDATE_26415486_GUARDS),
-            '26509480': (UPDATE_26509480_TARGETS, UPDATE_26509480_GUARDS)}.get(build)
+            '26509480': (UPDATE_26509480_TARGETS, UPDATE_26509480_GUARDS),
+            '26548517': (UPDATE_26548517_TARGETS, UPDATE_26548517_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')

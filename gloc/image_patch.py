@@ -81,6 +81,7 @@ _TARGETS_BY_BUILD["26509480"] = {
     _PREFIX + "e442ad58d7c153c49b63631ed3a6ddf1.bundle": ("CAB-a0006646bf97d91cc831e47e152989af", "f79be3fd637f6e95c0880799ee6f9c3dc5870c734063934189cd3168d64ad510"),
     _PREFIX + "f212c027cdea45c9bad58f33abff9a4c.bundle": ("CAB-fbb713bd85569f8101272a4763ea6bc0", "432bd433ce72ac78819cf6c421b9befd75df4ce6de2c76610df9de4881433e2d"),
 }
+_TARGETS_BY_BUILD["26548517"] = dict(_TARGETS_BY_BUILD["26509480"])
 _CURRENT_IDS = frozenset({
     "ckf-image:10fa5342868340bff4037730a670069c2e6e4eef7bf090150f2780354c248e71",
     "ckf-image:229f9cc082b71e3e35ac8493bc326831a23275e35f8250d1eab95d625da52204",
@@ -188,7 +189,7 @@ def validate_record(record: Mapping, *, source_build: str = "25594089") -> None:
     if not isinstance(record, Mapping):
         raise ImagePatchError("image record must be an object")
     targets = _profile(source_build)
-    if source_build in ("26097464", "26138768", "26151125", "26198171", "26299178", "26350623", "26356887", "26415486", "26509480"):
+    if source_build in ("26097464", "26138768", "26151125", "26198171", "26299178", "26350623", "26356887", "26415486", "26509480", "26548517"):
         raise ImagePatchError(source_build + " uses historical records through the relocation evidence gate")
     declared_build = record.get("source_build")
     if source_build == "25594089":
