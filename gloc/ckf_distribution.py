@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from .ckf_install import (CHINESE, FONT, FONT_26097464, FONT_26097464_PROFILE,
-                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, no_links, disjoint, valid_hash)
+                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, GUARDS_26624561, no_links, disjoint, valid_hash)
 from .image_patch import get_source_profile
 from .util import GlocError, file_hash, read_json, read_jsonl, require_new_output, write_json
 
@@ -90,9 +90,14 @@ UPDATE_26509480_ORIGINALS = {**UPDATE_26415486_ORIGINALS, CHINESE: "c7acaec5273b
 UPDATE_26548517_TARGETS = UPDATE_26509480_TARGETS
 UPDATE_26548517_GUARDS = dict(UPDATE_26509480_GUARDS)
 UPDATE_26548517_ORIGINALS = dict(UPDATE_26509480_ORIGINALS)
+# 26624561 retains the four locale/font/caption/fallback originals; English and catalog guards changed
+# and the first image bundle moved (its pinned original is in image_patch).
+UPDATE_26624561_TARGETS = UPDATE_26548517_TARGETS
+UPDATE_26624561_GUARDS = dict(GUARDS_26624561)
+UPDATE_26624561_ORIGINALS = dict(UPDATE_26548517_ORIGINALS)
 # Builds whose tutorial image streams are relocated from the released 25964281-rc1
 # evidence instead of reusing old bundle bytes; only that evidence lane permits this.
-RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517')
+RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517', '26624561')
 # Explicit update profiles.
 UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
 
@@ -116,7 +121,8 @@ def relocation_profile(build: str) -> dict | None:
             '26415486': {'game_version': '2.7.113', 'targets': UPDATE_26415486_TARGETS,
                          'guards': UPDATE_26415486_GUARDS, 'originals': UPDATE_26415486_ORIGINALS},
             '26509480': {'game_version': '2.7.115', 'targets': UPDATE_26509480_TARGETS, 'guards': UPDATE_26509480_GUARDS, 'originals': UPDATE_26509480_ORIGINALS},
-            '26548517': {'game_version': '2.7.117', 'targets': UPDATE_26548517_TARGETS, 'guards': UPDATE_26548517_GUARDS, 'originals': UPDATE_26548517_ORIGINALS}}.get(build)
+            '26548517': {'game_version': '2.7.117', 'targets': UPDATE_26548517_TARGETS, 'guards': UPDATE_26548517_GUARDS, 'originals': UPDATE_26548517_ORIGINALS},
+            '26624561': {'game_version': '2.7.119', 'targets': UPDATE_26624561_TARGETS, 'guards': UPDATE_26624561_GUARDS, 'originals': UPDATE_26624561_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
@@ -133,7 +139,8 @@ def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
             '26356887': (UPDATE_26299178_TARGETS, UPDATE_26356887_GUARDS),
             '26415486': (UPDATE_26415486_TARGETS, UPDATE_26415486_GUARDS),
             '26509480': (UPDATE_26509480_TARGETS, UPDATE_26509480_GUARDS),
-            '26548517': (UPDATE_26548517_TARGETS, UPDATE_26548517_GUARDS)}.get(build)
+            '26548517': (UPDATE_26548517_TARGETS, UPDATE_26548517_GUARDS),
+            '26624561': (UPDATE_26624561_TARGETS, UPDATE_26624561_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
