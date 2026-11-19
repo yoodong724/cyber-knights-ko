@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from .ckf_install import (CHINESE, FONT, FONT_26097464, FONT_26097464_PROFILE,
-                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, GUARDS_26624561, GUARDS_26706259, no_links, disjoint, valid_hash)
+                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, GUARDS_26624561, GUARDS_26706259, GUARDS_26775569, no_links, disjoint, valid_hash)
 from .image_patch import get_source_profile
 from .util import GlocError, file_hash, read_json, read_jsonl, require_new_output, write_json
 
@@ -99,9 +99,19 @@ UPDATE_26624561_ORIGINALS = dict(UPDATE_26548517_ORIGINALS)
 UPDATE_26706259_TARGETS = UPDATE_26624561_TARGETS
 UPDATE_26706259_GUARDS = dict(GUARDS_26706259)
 UPDATE_26706259_ORIGINALS = {**UPDATE_26624561_ORIGINALS, CHINESE: "74df5fb8abeb6696ba1c9f01aa94d695cdece656da6d38db528f67ea2d2ee90b"}
+# 26775569 moves the caption bundle; zh-CN, font, fallback and both image bundles are unchanged.
+UPDATE_26775569_TARGETS = (*UPDATE_26706259_TARGETS[:2],
+    'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/6a41c9e5e1f96795f762520715889f82.bundle',
+    UPDATE_26706259_TARGETS[3])
+UPDATE_26775569_GUARDS = dict(GUARDS_26775569)
+UPDATE_26775569_ORIGINALS = dict(zip(UPDATE_26775569_TARGETS, (
+    UPDATE_26706259_ORIGINALS[UPDATE_26706259_TARGETS[0]],
+    UPDATE_26706259_ORIGINALS[UPDATE_26706259_TARGETS[1]],
+    'd86856784253510a521fd990bfb9020367145fb6a548008f9cacac618a870cc4',
+    UPDATE_26706259_ORIGINALS[UPDATE_26706259_TARGETS[3]])))
 # Builds whose tutorial image streams are relocated from the released 25964281-rc1
 # evidence instead of reusing old bundle bytes; only that evidence lane permits this.
-RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517', '26624561', '26706259')
+RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517', '26624561', '26706259', '26775569')
 # Explicit update profiles.
 UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
 
@@ -127,7 +137,8 @@ def relocation_profile(build: str) -> dict | None:
             '26509480': {'game_version': '2.7.115', 'targets': UPDATE_26509480_TARGETS, 'guards': UPDATE_26509480_GUARDS, 'originals': UPDATE_26509480_ORIGINALS},
             '26548517': {'game_version': '2.7.117', 'targets': UPDATE_26548517_TARGETS, 'guards': UPDATE_26548517_GUARDS, 'originals': UPDATE_26548517_ORIGINALS},
             '26624561': {'game_version': '2.7.119', 'targets': UPDATE_26624561_TARGETS, 'guards': UPDATE_26624561_GUARDS, 'originals': UPDATE_26624561_ORIGINALS},
-            '26706259': {'game_version': '2.7.121', 'targets': UPDATE_26706259_TARGETS, 'guards': UPDATE_26706259_GUARDS, 'originals': UPDATE_26706259_ORIGINALS}}.get(build)
+            '26706259': {'game_version': '2.7.121', 'targets': UPDATE_26706259_TARGETS, 'guards': UPDATE_26706259_GUARDS, 'originals': UPDATE_26706259_ORIGINALS},
+            '26775569': {'game_version': '2.7.123', 'targets': UPDATE_26775569_TARGETS, 'guards': UPDATE_26775569_GUARDS, 'originals': UPDATE_26775569_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
@@ -146,7 +157,8 @@ def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
             '26509480': (UPDATE_26509480_TARGETS, UPDATE_26509480_GUARDS),
             '26548517': (UPDATE_26548517_TARGETS, UPDATE_26548517_GUARDS),
             '26624561': (UPDATE_26624561_TARGETS, UPDATE_26624561_GUARDS),
-            '26706259': (UPDATE_26706259_TARGETS, UPDATE_26706259_GUARDS)}.get(build)
+            '26706259': (UPDATE_26706259_TARGETS, UPDATE_26706259_GUARDS),
+            '26775569': (UPDATE_26775569_TARGETS, UPDATE_26775569_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
