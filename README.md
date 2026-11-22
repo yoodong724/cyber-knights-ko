@@ -1,27 +1,27 @@
 # Cyber Knights: Flashpoint 한글패치
 
-**[26775569 한글패치 다운로드](https://github.com/yoodong724/cyber-knights-ko/releases/tag/26775569)** · [변경 내역](CHANGELOG.md)
+**[26839171 한글패치 다운로드](https://github.com/yoodong724/cyber-knights-ko/releases/tag/26839171)** · [변경 내역](CHANGELOG.md)
 
 ## 대응 버전
 
 | 항목 | 버전 |
 |---|---|
-| 한글패치 | **26775569** |
-| 게임 | Steam Windows판, App ID 1021210, 빌드 **26775569** (게임 버전 2.7.123) |
-| 설치본 확인일 | **2026년 11월 19일** (한국 시간) |
+| 한글패치 | **26839171** |
+| 게임 | Steam Windows판, App ID 1021210, 빌드 **26839171** (게임 버전 2.7.127) |
+| 설치본 확인일 | **2026년 11월 22일** (한국 시간) |
 
 게임 빌드와 업데이트 날짜: [SteamDB](https://steamdb.info/app/1021210/patchnotes/).
 
 설치기는 게임 파일의 해시를 확인합니다. 빌드가 달라도 대상 파일의 해시가 같으면 구분할 수 없으므로, 위에 표시한 대응 빌드에 설치해 주십시오.
 
-설치·검증·제거 시험을 통과했습니다. 이번 빌드의 게임 실행 확인과 전체 플레이 테스트는 하지 않았습니다.
+설치·검증·제거 시험 및 패치 후 구동·타이틀 화면 한국어 적용 확인을 마쳤습니다. 전체 플레이 테스트는 하지 않았습니다.
 이미지는 튜토리얼·메뉴 배너 일부만 한글화했으며 영문 이미지가 남아 있습니다.
 
 ## 설치 방법
 
 1. 게임과 Steam을 종료합니다.
 2. 기존 패치가 설치돼 있다면 기존 `cyberknights-ko/uninstall.cmd`로 원본을 복구하고, 기존 `cyberknights-ko` 폴더를 다른 이름이나 위치에 보관합니다. 게임 폴더의 `.cyberknights-ko-backup` 폴더는 지우지 않습니다.
-3. 다운로드 페이지의 **Assets**에서 `cyberknights-ko-26775569.zip`(본문 + 일부 이미지)을 받습니다.
+3. 다운로드 페이지의 **Assets**에서 `cyberknights-ko-26839171.zip`(본문 + 일부 이미지)을 받습니다.
 4. Steam 라이브러리에서 게임을 우클릭하고 **관리 → 로컬 파일 탐색**으로 게임 폴더를 엽니다.
 5. ZIP 안의 `cyberknights-ko` 폴더를 `CyberKnights.exe`가 있는 폴더에 넣습니다.
 6. `cyberknights-ko/install.cmd`를 실행하고, 표시된 게임 폴더가 맞으면 `y`를 입력합니다.

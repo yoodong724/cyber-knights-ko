@@ -10,8 +10,9 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 from .ckf_install import (CHINESE, FONT, FONT_26097464, FONT_26097464_PROFILE,
-                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, GUARDS_26624561, GUARDS_26706259, GUARDS_26775569, no_links, disjoint, valid_hash)
+                          GUARDS, GUARDS_26097464, GUARDS_26138768, GUARDS_26151125, GUARDS_26198171, GUARDS_26299178, GUARDS_26350623, GUARDS_26356887, GUARDS_26415486, GUARDS_26509480, GUARDS_26624561, GUARDS_26706259, GUARDS_26775569, GUARDS_26839171, no_links, disjoint, valid_hash)
 from .image_patch import get_source_profile
+from .ckf_partial_images import EvidenceRoot
 from .util import GlocError, file_hash, read_json, read_jsonl, require_new_output, write_json
 
 MAGIC = b'CKFDLT1\0'
@@ -109,9 +110,13 @@ UPDATE_26775569_ORIGINALS = dict(zip(UPDATE_26775569_TARGETS, (
     UPDATE_26706259_ORIGINALS[UPDATE_26706259_TARGETS[1]],
     'd86856784253510a521fd990bfb9020367145fb6a548008f9cacac618a870cc4',
     UPDATE_26706259_ORIGINALS[UPDATE_26706259_TARGETS[3]])))
+# 26839171 retains all six target originals byte-for-byte; English and catalog guards changed.
+UPDATE_26839171_TARGETS = UPDATE_26775569_TARGETS
+UPDATE_26839171_GUARDS = dict(GUARDS_26839171)
+UPDATE_26839171_ORIGINALS = dict(UPDATE_26775569_ORIGINALS)
 # Builds whose tutorial image streams are relocated from the released 25964281-rc1
 # evidence instead of reusing old bundle bytes; only that evidence lane permits this.
-RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517', '26624561', '26706259', '26775569')
+RELOCATION_BUILDS = ('26097464', '26138768', '26151125', '26198171', '26299178', '26350623', '26356887', '26415486', '26509480', '26548517', '26624561', '26706259', '26775569', '26839171')
 # Explicit update profiles.
 UPDATE_BUILDS = ('25889011', '25951469', '25964281', *RELOCATION_BUILDS)
 
@@ -138,7 +143,8 @@ def relocation_profile(build: str) -> dict | None:
             '26548517': {'game_version': '2.7.117', 'targets': UPDATE_26548517_TARGETS, 'guards': UPDATE_26548517_GUARDS, 'originals': UPDATE_26548517_ORIGINALS},
             '26624561': {'game_version': '2.7.119', 'targets': UPDATE_26624561_TARGETS, 'guards': UPDATE_26624561_GUARDS, 'originals': UPDATE_26624561_ORIGINALS},
             '26706259': {'game_version': '2.7.121', 'targets': UPDATE_26706259_TARGETS, 'guards': UPDATE_26706259_GUARDS, 'originals': UPDATE_26706259_ORIGINALS},
-            '26775569': {'game_version': '2.7.123', 'targets': UPDATE_26775569_TARGETS, 'guards': UPDATE_26775569_GUARDS, 'originals': UPDATE_26775569_ORIGINALS}}.get(build)
+            '26775569': {'game_version': '2.7.123', 'targets': UPDATE_26775569_TARGETS, 'guards': UPDATE_26775569_GUARDS, 'originals': UPDATE_26775569_ORIGINALS},
+            '26839171': {'game_version': '2.7.127', 'targets': UPDATE_26839171_TARGETS, 'guards': UPDATE_26839171_GUARDS, 'originals': UPDATE_26839171_ORIGINALS}}.get(build)
 
 
 def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
@@ -158,7 +164,8 @@ def update_profile(build: str) -> tuple[tuple[str, ...], dict[str, str]] | None:
             '26548517': (UPDATE_26548517_TARGETS, UPDATE_26548517_GUARDS),
             '26624561': (UPDATE_26624561_TARGETS, UPDATE_26624561_GUARDS),
             '26706259': (UPDATE_26706259_TARGETS, UPDATE_26706259_GUARDS),
-            '26775569': (UPDATE_26775569_TARGETS, UPDATE_26775569_GUARDS)}.get(build)
+            '26775569': (UPDATE_26775569_TARGETS, UPDATE_26775569_GUARDS),
+            '26839171': (UPDATE_26839171_TARGETS, UPDATE_26839171_GUARDS)}.get(build)
 IMAGE_TARGETS = (
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/672fb9a7811edcdde218dc5de379c935.bundle',
     'CyberKnights_Data/StreamingAssets/aa/StandaloneWindows64/b50ba8b5464ec4de8ea55b111bbad63a.bundle')
@@ -430,7 +437,7 @@ def _image_validation(stage: Path, rows: dict, *, build: str = '25594089') -> No
 def build_package(*, stages: list[Path], original: Path, templates: Path,
                   font_license: Path, font_notice: str, build: str, game_version: str,
                   revision: int, out: Path, work: Path,
-                  allow_partial_images: bool = False) -> dict:
+                  allow_partial_images: bool = False, legacy_evidence: EvidenceRoot | None = None) -> dict:
     """Explicit locally authorized package assembly; not the language approval gate."""
     name = archive_name(build, revision)
     if type(allow_partial_images) is not bool:
@@ -524,7 +531,7 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
             raise GlocError('Current image stage requires its pinned build and guards')
         if allow_partial_images:
             from .ckf_partial_images import validate_partial_images
-            image_summary = validate_partial_images(image_stage, rows, build=build)
+            image_summary = validate_partial_images(image_stage, rows, build=build, mapping=legacy_evidence)
         else:
             if profile:
                 raise GlocError(f'{build} images require explicit partial-image authorization')
@@ -580,7 +587,7 @@ def build_package(*, stages: list[Path], original: Path, templates: Path,
                        '사람 언어 승인·전체 게임 QA·전체 이미지 완료 승인은 없습니다.\n\n'+content)
         content = content.replace('\n','\r\n')
         (package/relative).write_bytes(content.encode('utf-8'))
-    (package/'FONT-LICENSE.txt').write_text(font_notice+'\n\n'+font_license.read_text(),encoding='utf-8')
+    (package/'FONT-LICENSE.txt').write_text(font_notice+'\n\n'+font_license.read_text(encoding='utf-8'),encoding='utf-8', newline='\n')
     out.mkdir(parents=True,exist_ok=True)
     members = sorted(p for p in package.rglob('*') if p.is_file())
     expected = {'manifest.json','FONT-LICENSE.txt',*allow,*(r['payload'] for r in entries)}

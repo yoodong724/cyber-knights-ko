@@ -6,6 +6,7 @@ continues to require every image and every in-game check to pass.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 import json
 import re
 import zipfile
@@ -28,6 +29,7 @@ _TARGETS = tuple(get_source_profile(_BUILD))
 RELOCATION_ARCHIVE_SHA256 = "4833ae1876c9572100815df8045948eba80717182f4b894ba332fcbaad96983f"
 # Exact preservation accounting of the two current image bundles per relocation build.
 RELOCATION_COUNTS = {
+    "26839171": {"selected_texture_streams": 16, "total_objects": 5984, "total_texture_streams": 1949, "unchanged_nonselected_texture_streams": 1933, "unchanged_objects": 5984},
     "26775569": {"selected_texture_streams": 16, "total_objects": 5984, "total_texture_streams": 1949, "unchanged_nonselected_texture_streams": 1933, "unchanged_objects": 5984},
     "26706259": {"total_objects": 5984, "unchanged_objects": 5984,
                  "total_texture_streams": 1949, "selected_texture_streams": 16,
@@ -103,14 +105,36 @@ def _file(root: Path, relative: str, *, prefix: str | None = None) -> Path:
     return target
 
 
-def _absolute_file(root: Path, name: object, *, directory: str) -> Path:
-    _need(isinstance(name, str), "invalid readback path")
-    path = Path(name)
-    _need(path.is_absolute() and path.parent == root / directory and path.suffix.lower() == ".png",
+@dataclass(frozen=True)
+class EvidenceRoot:
+    """Resolve a previous POSIX project root against its migrated local tree."""
+
+    old: PurePosixPath
+    local: Path
+
+    def __post_init__(self):
+        _need(self.old.root == "/" and len(self.old.parts) > 1 and ".." not in self.old.parts,
+              "invalid legacy project root")
+
+
+def _evidence_path(value: object, mapping: EvidenceRoot | None, error: str) -> Path:
+    _need(isinstance(value, str), error)
+    if mapping and value.startswith("/"):
+        old_path = PurePosixPath(value)
+        _need(old_path.is_relative_to(mapping.old) and str(old_path) == value and
+              not any(part in (".", "..") or "\\" in part or ":" in part for part in old_path.parts), error)
+        return no_links(mapping.local.joinpath(*old_path.relative_to(mapping.old).parts))
+    path = Path(value)
+    _need(path.is_absolute(), error)
+    return no_links(path)
+
+
+def _absolute_file(root: Path, name: object, *, directory: str, mapping: EvidenceRoot | None) -> Path:
+    path = _evidence_path(name, mapping, "unsafe readback PNG path")
+    _need(path.parent == root / directory and path.suffix.lower() == ".png",
           "unsafe readback PNG path")
-    target = no_links(path)
-    _need(target.is_file(), "missing readback PNG")
-    return target
+    _need(path.is_file(), "missing readback PNG")
+    return path
 
 
 def _hashes(root: Path, names: dict[str, str]) -> tuple[dict[str, Path], dict[str, str]]:
@@ -118,16 +142,16 @@ def _hashes(root: Path, names: dict[str, str]) -> tuple[dict[str, Path], dict[st
     return paths, {key: file_hash(path) for key, path in paths.items()}
 
 
-def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
+def validate_partial_images(stage: Path, rows: dict, *, build: str, mapping: EvidenceRoot | None = None) -> dict:
     """Validate the saved partial overlay and return a truthful public summary.
 
     ``rows`` is the distribution builder's map of target path to one staged file
     row.  No source bytes are written or regenerated here.
     """
     if build in RELOCATION_COUNTS:
-        return _validate_relocated_partial_images(stage, rows, build)
+        return _validate_relocated_partial_images(stage, rows, build, mapping)
     if build in ("25889011", "25951469", "25964281"):
-        return _validate_reused_partial_images(stage, rows, build)
+        return _validate_reused_partial_images(stage, rows, build, mapping)
     _need(build == _BUILD, "partial lane is pinned to Steam build 25697586")
     stage = Path(stage).resolve()
     root = stage.parent
@@ -257,7 +281,7 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
               isinstance(edit.get("final_png_sha256"), str) and _SHA.fullmatch(edit["final_png_sha256"]) and
               file_hash(_file(root, edit.get("final_png"))) == edit["final_png_sha256"],
               "candidate PNG/source hash mismatch")
-        readback = _absolute_file(root, built_row.get("readback_png"), directory="available-build-report-v1-readback")
+        readback = _absolute_file(root, built_row.get("readback_png"), directory="available-build-report-v1-readback", mapping=mapping)
         _need(file_hash(readback) == built_row.get("readback_png_sha256"), "saved-bundle readback PNG mismatch")
         _need(built_row.get("bundle_path") == bundle and built_row.get("bundle_sha256") == bundle_hash and
               built_row.get("format") == rec.get("format") and
@@ -367,7 +391,7 @@ def validate_partial_images(stage: Path, rows: dict, *, build: str) -> dict:
     }
 
 
-def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict:
+def _validate_reused_partial_images(stage: Path, rows: dict, build: str, mapping: EvidenceRoot | None) -> dict:
     """Reuse byte-identical image evidence without reassigning old game QA.
 
     Prior records retain their real source build. The current package reports
@@ -382,8 +406,7 @@ def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict
           receipt.get("source_build") == build and receipt.get("evidence_source_build") == _BUILD and
           receipt.get("current_ingame") == "NOT_RUN", "invalid image reuse receipt")
     prior_value = receipt.get("prior_stage")
-    _need(isinstance(prior_value, str) and Path(prior_value).is_absolute(), "invalid prior image stage")
-    prior_stage = no_links(Path(prior_value))
+    prior_stage = _evidence_path(prior_value, mapping, "invalid prior image stage")
     _need(prior_stage != stage and not prior_stage.is_relative_to(stage) and
           not stage.is_relative_to(prior_stage), "overlapping image reuse inputs")
     prior_manifest_path = _file(prior_stage, "manifest.json")
@@ -392,7 +415,7 @@ def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict
           file_hash(prior_validation_path) == receipt.get("prior_validation_sha256"), "stale prior image stage")
     prior_manifest = read_json(prior_manifest_path)
     prior_rows = {x["path"]: (x, _file(prior_stage, x["payload"])) for x in prior_manifest["files"]}
-    previous = validate_partial_images(prior_stage, prior_rows, build=_BUILD)
+    previous = validate_partial_images(prior_stage, prior_rows, build=_BUILD, mapping=mapping)
     manifest_path = _file(stage, "manifest.json")
     manifest = read_json(manifest_path)
     _need(manifest.get("format") == "ckf-local-asset-overlay-v1" and
@@ -441,7 +464,7 @@ def _validate_reused_partial_images(stage: Path, rows: dict, build: str) -> dict
     return previous
 
 
-def _released_relocation_evidence(stage: Path, receipt: dict) -> tuple[dict, dict, dict, dict]:
+def _released_relocation_evidence(stage: Path, receipt: dict, mapping: EvidenceRoot | None) -> tuple[dict, dict, dict, dict]:
     """Read hash-anchored static evidence without claiming unavailable game QA."""
     from .ckf_distribution import UPDATE_25951469_TARGETS, UPDATE_25964281_GUARDS
 
@@ -449,9 +472,7 @@ def _released_relocation_evidence(stage: Path, receipt: dict) -> tuple[dict, dic
           receipt.get("prior_archive_sha256") == RELOCATION_ARCHIVE_SHA256,
           "invalid released image evidence anchor")
     archive_value, prior_value = receipt.get("prior_archive"), receipt.get("prior_image_stage")
-    _need(all(isinstance(x, str) and Path(x).is_absolute() for x in (archive_value, prior_value)),
-          "invalid released image evidence paths")
-    archive = no_links(Path(archive_value))
+    archive = _evidence_path(archive_value, mapping, "invalid released image evidence paths")
     _need(archive.is_file() and not archive.is_relative_to(stage) and
           file_hash(archive) == RELOCATION_ARCHIVE_SHA256, "released image archive hash mismatch")
     try:
@@ -492,7 +513,7 @@ def _released_relocation_evidence(stage: Path, receipt: dict) -> tuple[dict, dic
     fingerprints = previous.get("evidence_sha256")
     _need(isinstance(fingerprints, dict) and all(isinstance(h, str) and _SHA.fullmatch(h)
           for h in fingerprints.values()), "invalid released evidence hashes")
-    prior_stage = no_links(Path(prior_value)).resolve()
+    prior_stage = _evidence_path(prior_value, mapping, "invalid released image evidence paths")
     _need(not prior_stage.is_relative_to(stage) and not stage.is_relative_to(prior_stage),
           "overlapping image relocation inputs")
     manifest_path = _file(prior_stage, "manifest.json")
@@ -531,7 +552,7 @@ def _released_relocation_evidence(stage: Path, receipt: dict) -> tuple[dict, dic
     return previous, records, results, prior_files
 
 
-def _validate_relocated_partial_images(stage: Path, rows: dict, build: str) -> dict:
+def _validate_relocated_partial_images(stage: Path, rows: dict, build: str, mapping: EvidenceRoot | None) -> dict:
     """Bind reviewed historical streams to current locators, without new QA.
 
     The local Unity bridge supplies machine evidence; this stdlib gate checks
@@ -547,7 +568,7 @@ def _validate_relocated_partial_images(stage: Path, rows: dict, build: str) -> d
     _need(isinstance(receipt, dict) and receipt.get("format") == "ckf-image-relocation-v1" and
           receipt.get("source_build") == build and receipt.get("evidence_source_build") == _BUILD and
           receipt.get("current_ingame") == "NOT_RUN", "invalid image relocation receipt")
-    previous, records, prior_results, prior_files = _released_relocation_evidence(stage, receipt)
+    previous, records, prior_results, prior_files = _released_relocation_evidence(stage, receipt, mapping)
 
     source_profile = get_source_profile(build)
     targets = tuple(source_profile)
@@ -576,7 +597,7 @@ def _validate_relocated_partial_images(stage: Path, rows: dict, build: str) -> d
     # Earlier relocation builds kept the entire banner bundle byte-identical.
     # 26198171 repacked that bundle too (26299178/26350623 reuse that layout); its pinned original and the full
     # stream/pixel/non-target checks below bind the reviewed banner content.
-    if build not in ("26198171", "26299178", "26350623", "26356887", "26415486", "26509480", "26548517", "26624561", "26706259", "26775569"):
+    if build not in ("26198171", "26299178", "26350623", "26356887", "26415486", "26509480", "26548517", "26624561", "26706259", "26775569", "26839171"):
         _need(files[targets[1]]["after"] == prior_files[_TARGETS[1]]["after"],
               "relocated banner must reuse reviewed payload bytes")
 
