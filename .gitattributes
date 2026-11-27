@@ -1,0 +1,8 @@
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+# Installer templates are read byte-for-byte when the ZIP is built.
+*.cmd text eol=lf
+*.cs text eol=lf
+*.txt text eol=lf

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+
+# Translation text, edited images and game-derived build inputs are local-only.
+*.zip
+*.zip.sha256
+*.bin
+*.bundle
+*.jsonl
+/snapshot/
+/stages/
+/original/
+/work/
+/out/
